@@ -68,19 +68,13 @@ try:
 		print "initial contact made, getting type"
 		connection_type = connection.recv_data(poll=False)
 		print connection_type
+		if connection_type == "new_user":
+			account = open(username+"_"+nextid+".py","w")
 		if connection_type == "game":
 			games.append(connection)
 			#username = connection.recv_data(poll=False)
-			#password = connection.recv_data(poll=False)
-			#if os.path.exists(username):
-			#	account = open(username+"_"+password+".py","r")
-			#	print "loading account"
-			#else:
-			#	print "generating new account"
-			#	account = open(username+"_"+password+".py","w")
-			#	account.write(DEFAULT)
-			#	account.close()
-			#	account = open(username+"_"+password+".py","r")
+			#userid = connection.recv_data(poll=False)
+			#account = open(username+"_"+userid+".py","r")
 			#connection.send(account.read())
 			print "accepted game"
 			for command in game_events:
@@ -102,7 +96,7 @@ try:
 		elif connection_type == "character":
 			name = connection.recv_data(poll=False)
 			if name in characters:
-				characters[name][0].append(connection) #is this code the problem???????????????????????????????????????????????????????????????????READ ME
+				characters[name][0].append(connection)
 			else:
 				characters.update({name:[[connection],"(100,100)"]})
 				character_data.update({name:[]})

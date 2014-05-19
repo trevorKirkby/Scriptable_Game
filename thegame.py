@@ -6,6 +6,12 @@ from Tkinter import *
 import Tkinter as tk
 import _tkinter
 
+#def import_block(*args):
+#	return time
+
+#__import__ = import_block
+#__builtins__.__import__ = import_block
+
 SPEED = 0.025
 COLOR = (150,150,200)
 
@@ -23,14 +29,23 @@ inputters            =   []
 
 controls = {}
 for letter in "1234567890qwertyuiopasdfghjklzxcvbnm":
-	controls.update({"'"+letter+"'": [False,letter+letter+letter+letter] })
+	controls.update({"'"+letter+"'": [False,"_"+letter] })
 
-"""
-homing projectile, precise aim-enabled projectile (diagonal etc)
-also make something cool that can "burn atium" because all but self is AI
-unless the sprite has an attribute to say otherwise, make sprites that aren't automatically updated get updated when another sprite passes over them
-make a projectile attribute that makes it so that if true, loses speed before halfway through destructcountdown, gains after, looking like a trajectory (also, said arcing projectiles pass over impermeable objects and repair walls they go through always)
-"""
+PORT = 1340
+
+serverhost     = None         #the host name of the server, used to connect to said server
+user_input1    = None         #connection establisher
+user_input2    = None         #event handler
+user_input3    = None         #image sender
+user_input4    = None         #script sender
+fore           = None         #character to which the event handler is currently sending to
+codesender     = None         #the foreground code sender
+
+all_characters  =  {}
+eventsenders    =  {}
+codesenders     =  {}
+images          =  {}
+user_info       =  {}
 
 class Moveable(pygame.sprite.Sprite):
 	def __init__(self,pos,imageFileName):
@@ -537,34 +552,6 @@ class character(unit):
 	def aimright2(self):
 		self.aiming2(3)
 
-PORT = 1340
-
-serverhost = None   #the host name of the server, used to connect to said server
-user_input1 = None      #connection establisher
-user_input2 = None      #event handler
-user_input3 = None      #image sender
-user_input4 = None      #script sender
-fore = None         #character to which the event handler is currently sending to
-foreobj = None      #the character object, not its socket
-codesender = None   #the foreground code sender
-
-all_characters  =  {}
-eventsenders    =  {}
-codesenders     =  {}
-images          =  {}
-
-root = tk.Tk()
-embed = tk.Frame(root, width = 600, height = 600) #creates embed frame for pygame window
-embed.grid(columnspan = (600), rowspan = 600) # Adds grid
-embed.pack(side = LEFT) #packs window to the left
-tkwin = tk.Frame(root, width = 200, height = 500)
-tkwin.pack(side = RIGHT)
-os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
-os.environ['SDL_VIDEODRIVER'] = 'windib'
-
-pygame.init()
-screen = pygame.display.set_mode((600,600))
-
 class bolt(projectile):
 		def __init__(self,pos,direction,parent):
 			projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
@@ -573,15 +560,15 @@ class generic(character):
 	def __init__(self,sockets,pos):
 		self.aim = [0,0]
 		character.__init__(self,pos,"generic.png",20,3,3,pygame.sprite.RenderUpdates(),2,socket=sockets)
-	def wwww(self):
+	def _w(self):
 		self.goup()
-	def ssss(self):
+	def _s(self):
 		self.godown()
-	def aaaa(self):
+	def _a(self):
 		self.goleft()
-	def dddd(self):
+	def _d(self):
 		self.goright()
-	def eeee(self):
+	def _e(self):
 		self.shoot(bolt)
 
 class wall(barrier):
@@ -701,49 +688,6 @@ def keyhandleup(event):
 	except KeyError:
 		pass
 
-eventgetter = Text(tkwin, width=10,height=5, state = DISABLED)
-eventgetter.place(relx=0.5, rely=0.25, anchor=CENTER)
-eventgetter.bind("<KeyPress>", keyhandle)
-eventgetter.bind("<KeyRelease>", keyhandleup)
-root.bind("<KeyRelease>", keyhandleup)
-root.bind("<KeyPress>", endhandle)
-
-inputter = Entry(tkwin)
-inputter.place(relx=0.5, rely=0.45, anchor=CENTER)
-
-button1 = Button(tkwin,text = 'enter',  command=get_input)
-button1.place(relx=0.5, rely=0.50, anchor=CENTER)
-
-prompt = Text(tkwin, width=25, height=1, state = DISABLED)
-prompt.place(relx=0.5, rely=0.40, anchor=CENTER)
-
-inputter2 = Entry(tkwin)
-inputter2.place(relx=0.5, rely=0.6, anchor=CENTER)
-
-button2 = Button(tkwin,text = 'enter',  command=get_input2)
-button2.place(relx=0.5, rely=0.65, anchor=CENTER)
-
-prompt2 = Text(tkwin, width=25, height=1, state = DISABLED)
-prompt2.place(relx=0.5, rely=0.55, anchor=CENTER)
-
-inputter3 = Entry(tkwin)
-inputter3.place(relx=0.5, rely=0.75, anchor=CENTER)
-
-button3 = Button(tkwin,text = 'enter',  command=get_input3)
-button3.place(relx=0.5, rely=0.80, anchor=CENTER)
-
-prompt3 = Text(tkwin, width=25, height=1, state = DISABLED)
-prompt3.place(relx=0.5, rely=0.70, anchor=CENTER)
-
-inputter4 = Entry(tkwin)
-inputter4.place(relx=0.5, rely=0.9, anchor=CENTER)
-
-button4 = Button(tkwin,text = 'enter',  command=get_input4)
-button4.place(relx=0.5, rely=0.95, anchor=CENTER)
-
-prompt4 = Text(tkwin, width=25, height=1, state = DISABLED)
-prompt4.place(relx=0.5, rely=0.85, anchor=CENTER)
-
 def tkinput(text):
 	global user_input1
 	prompt["state"] = NORMAL
@@ -808,18 +752,101 @@ def tkinput4(text):
 	prompt4["state"] = DISABLED
 	return info
 
+def make_account():
+	conn = socket(1340)
+	conn.connect(serverhost)
+	conn.send_data("new_user")
+	conn.send_data(tkinput("enter username: "))
+	conn.send_data(tkinput("enter password: "))
+	conn.send_data(tkinput("enter email: "))
+
+def login():
+	server_conn.send(tkinput("enter username"))
+	server_conn.send(tkinput("enter id"))
+	CURRENCY = int(server_conn.recv_data(poll=False))
+
+def add_others():
+	account_adder = socket(1340)
+	account_adder.connect(serverhost)
+	account_adder.send("account_adder")
+	while True:
+		info = account_adder.recv_data(poll=False)
+		exec info
+		user_info.update({account_name:[default,others]})
+		#{"trevor":[generic,{"canine":canine}]}
+		#account_name = "trevor"
+		#default = generic
+		#others = {"canine":canine} #implies that canine is defined here
+		#make sure that the server asserts that all of these are instances of units.
+
+root = tk.Tk()
+embed = tk.Frame(root, width = 600, height = 600)
+embed.grid(columnspan = (600), rowspan = 600)
+embed.pack(side = LEFT)
+tkwin = tk.Frame(root, width = 200, height = 500)
+tkwin.pack(side = RIGHT)
+os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
+os.environ['SDL_VIDEODRIVER'] = 'windib'
+
+pygame.init()
+screen = pygame.display.set_mode((600,600))
+
+eventgetter = Text(tkwin, width=10,height=5, state = DISABLED)
+eventgetter.place(relx=0.5, rely=0.25, anchor=CENTER)
+eventgetter.bind("<KeyPress>", keyhandle)
+eventgetter.bind("<KeyRelease>", keyhandleup)
+root.bind("<KeyRelease>", keyhandleup)
+root.bind("<KeyPress>", endhandle)
+
+inputter = Entry(tkwin)
+inputter.place(relx=0.5, rely=0.45, anchor=CENTER)
+
+button1 = Button(tkwin,text = 'enter',  command=get_input)
+button1.place(relx=0.5, rely=0.50, anchor=CENTER)
+
+prompt = Text(tkwin, width=25, height=2, state = DISABLED)
+prompt.place(relx=0.5, rely=0.375, anchor=CENTER)
+
+inputter2 = Entry(tkwin)
+inputter2.place(relx=0.5, rely=0.6, anchor=CENTER)
+
+button2 = Button(tkwin,text = 'enter',  command=get_input2)
+button2.place(relx=0.5, rely=0.65, anchor=CENTER)
+
+prompt2 = Text(tkwin, width=25, height=1, state = DISABLED)
+prompt2.place(relx=0.5, rely=0.55, anchor=CENTER)
+
+inputter3 = Entry(tkwin)
+inputter3.place(relx=0.5, rely=0.75, anchor=CENTER)
+
+button3 = Button(tkwin,text = 'enter',  command=get_input3)
+button3.place(relx=0.5, rely=0.80, anchor=CENTER)
+
+prompt3 = Text(tkwin, width=25, height=1, state = DISABLED)
+prompt3.place(relx=0.5, rely=0.70, anchor=CENTER)
+
+inputter4 = Entry(tkwin)
+inputter4.place(relx=0.5, rely=0.9, anchor=CENTER)
+
+button4 = Button(tkwin,text = 'enter',  command=get_input4)
+button4.place(relx=0.5, rely=0.95, anchor=CENTER)
+
+prompt4 = Text(tkwin, width=25, height=1, state = DISABLED)
+prompt4.place(relx=0.5, rely=0.85, anchor=CENTER)
+
 serverhost = tkinput("enter server host")
 
 server_conn = socket(PORT)
 server_conn.connect(serverhost)
 server_conn.send("game")
 
-#server_conn.send(tkinput("enter username"))
-#server_conn.send(tkinput("enter passkey"))
+'''
+server_conn.send(tkinput("enter username")
+server_conn.send(tkinput("enter id"))
 
-#initscript = server_conn.recv_data(poll=False)
-#print initscript
-#exec initscript
+initscript = server_conn.recv_data(poll=False)
+exec initscript
+'''
 
 mythread1 = threading.Thread(target = addcharacters)
 mythread1.start()
@@ -886,17 +913,13 @@ wall((300,300))
 
 default_new = generic
 
-CURRENCY = 10
-
 start()
 
 """
 Todo:
-1. institute accounts and character data to load before hand. also allow characters with specific names to be differentiated.
-1.25 make creating an account a different process than logging in, in which you run a completely different, tkinter only program that will also collect things like email
-1.125 make the password system actually a password, that is halfway secure and not easily breakable. It won't need to withstand a determined effort, few people are determined these days.
-1.5 create a modular "item" class that modifies characters. This is what you gain from defeating an enemy. A spirit can be made to utilize a host by inheriting from item, though this is difficult
-2. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
+1. institute accounts
+2 create a modular "item" class that modifies characters. This is what you gain from defeating an enemy. A spirit can be made to utilize a host by inheriting from item, though this is difficult
+3. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
 	-life force (max health, regen, projected healing)
 	-damage (health removal, health drain, health sacrafice to amplify abilities)
 		-damage is actually 1 of three paired forces:
@@ -908,12 +931,12 @@ Todo:
 	-spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 	-energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 	-creation force (used to spawn new objects, AI units, and even map slices)
-3. add map panning features, basically multiple maps running at once with warp points between them
+4. add legitimate security against malicous code
+5. add map panning features, basically multiple maps running at once with warp points between them
 	-see map
-4. add "key" locks onto the infastructure
-5. add ready to patch security into the server, make sure that viral code is virtually impossible to send, especially since someone can always sort through the code and see what you did
-6. write documentation in full, including the secret docs
-7. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+6. add "key" locks onto the infastructure
+7. write documentation in full, including the secret docs
+8. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
 
 

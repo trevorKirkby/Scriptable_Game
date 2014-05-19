@@ -60,8 +60,6 @@ def recv_fixed(sock,size):
 	#	pass
 	return mybuffer
 
-#make each thread open up their own windows!!!
-
 class socket():
 	def __init__(self,port):
 		self.port = int(port)
