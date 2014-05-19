@@ -537,43 +537,6 @@ class character(unit):
 	def aimright2(self):
 		self.aiming2(3)
 
-class canine(character):
-	def __init__(self,sockets,pos):
-		self.aim = [0,0]
-		character.__init__(self,pos,"canine.png",50,0,3,pygame.sprite.RenderUpdates(),4,socket=sockets)
-		self.shoot = nothing
-		self.aimshoot = nothing
-	def e(self):
-		self.inertia()
-	def w(self):
-		self.goup()
-	def s(self):
-		self.godown()
-	def a(self):
-		self.goleft()
-	def d(self):
-		self.goright()
-
-class spiritbolt(projectile):
-		def __init__(self,pos,direction,parent):
-			projectile.__init__(self,pos,direction,"energy.png",20,damager=-1,boomtrigger=False,simple=True,parent=parent)
-
-class spirit(character):
-	def __init__(self,sockets,pos):
-		self.aim = [0,0]
-		character.__init__(self,pos,"spirit.png",40,5,5,pygame.sprite.RenderUpdates(),5,socket=sockets)
-		collideable.remove(self)
-	def e(self):
-		self.shoot(spiritbolt)
-	def w(self):
-		self.goup()
-	def s(self):
-		self.godown()
-	def a(self):
-		self.goleft()
-	def d(self):
-		self.goright()
-
 PORT = 1340
 
 serverhost = None   #the host name of the server, used to connect to said server
@@ -609,7 +572,7 @@ class bolt(projectile):
 class generic(character):
 	def __init__(self,sockets,pos):
 		self.aim = [0,0]
-		character.__init__(self,pos,"noob.png",20,3,3,pygame.sprite.RenderUpdates(),2,socket=sockets)
+		character.__init__(self,pos,"generic.png",20,3,3,pygame.sprite.RenderUpdates(),2,socket=sockets)
 	def wwww(self):
 		self.goup()
 	def ssss(self):
