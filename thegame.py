@@ -47,6 +47,10 @@ codesenders     =  {}
 images          =  {}
 user_info       =  {}
 
+CURRENCY = 0
+login = False
+playername = None
+
 class Moveable(pygame.sprite.Sprite):
 	def __init__(self,pos,imageFileName):
 		pygame.sprite.Sprite.__init__(self)
@@ -595,6 +599,7 @@ def addcharacters():
 	global codesend
 	global serverhost
 	global eventsenders
+	global playername
 	while True:
 		connected = False
 		myname = tkinput2("name unit to control")
@@ -606,6 +611,7 @@ def addcharacters():
 			fore.connect(serverhost)
 			fore.send_data("event_handler")
 			fore.send_data(myname)
+			fore.send_data(playername)
 			time.sleep(1)
 			codesend = socket(PORT)
 			codesend.connect(serverhost)
@@ -753,31 +759,40 @@ def tkinput4(text):
 	return info
 
 def make_account():
-	conn = socket(1340)
-	conn.connect(serverhost)
-	conn.send_data("new_user")
-	conn.send_data(tkinput("enter username: "))
-	conn.send_data(tkinput("enter password: "))
-	conn.send_data(tkinput("enter email: "))
+	server_conn.send("new")
+	server_conn.send_data(tkinput("enter username"))
+	server_conn.send_data(tkinput("enter user id"))
+	server_conn.send_data(tkinput("enter email"))
 
 def login():
-	server_conn.send(tkinput("enter username"))
-	server_conn.send(tkinput("enter id"))
+	global CURRENCY
+	global login
+	global playername
+	server_conn.send("login")
+	playername = tkinput("enter username")
+	server_conn.send(playername)
+	server_conn.send(tkinput("enter user id"))
 	CURRENCY = int(server_conn.recv_data(poll=False))
+	login = True
 
-def add_others():
+def add_others(serverhost):
 	account_adder = socket(1340)
 	account_adder.connect(serverhost)
 	account_adder.send("account_adder")
 	while True:
 		info = account_adder.recv_data(poll=False)
+		print info
 		exec info
-		user_info.update({account_name:[default,others]})
-		#{"trevor":[generic,{"canine":canine}]}
-		#account_name = "trevor"
-		#default = generic
-		#others = {"canine":canine} #implies that canine is defined here
-		#make sure that the server asserts that all of these are instances of units.
+		allsprites = others.values()
+		allsprites.append(default)
+		accepted = True
+		#for sprite in allsprites:
+		#	if isinstance(sprite,character) != True and sprite != None:
+		#		print "rejecting fraudulent character"
+		#		print sprite
+		#		accepted = False
+		if accepted:
+			user_info.update({account_name:[default,others]})
 
 root = tk.Tk()
 embed = tk.Frame(root, width = 600, height = 600)
@@ -792,7 +807,7 @@ pygame.init()
 screen = pygame.display.set_mode((600,600))
 
 eventgetter = Text(tkwin, width=10,height=5, state = DISABLED)
-eventgetter.place(relx=0.5, rely=0.25, anchor=CENTER)
+eventgetter.place(relx=0.5, rely=0.15, anchor=CENTER)
 eventgetter.bind("<KeyPress>", keyhandle)
 eventgetter.bind("<KeyRelease>", keyhandleup)
 root.bind("<KeyRelease>", keyhandleup)
@@ -804,7 +819,7 @@ inputter.place(relx=0.5, rely=0.45, anchor=CENTER)
 button1 = Button(tkwin,text = 'enter',  command=get_input)
 button1.place(relx=0.5, rely=0.50, anchor=CENTER)
 
-prompt = Text(tkwin, width=25, height=2, state = DISABLED)
+prompt = Text(tkwin, width=25, height=1, state = DISABLED)
 prompt.place(relx=0.5, rely=0.375, anchor=CENTER)
 
 inputter2 = Entry(tkwin)
@@ -834,19 +849,18 @@ button4.place(relx=0.5, rely=0.95, anchor=CENTER)
 prompt4 = Text(tkwin, width=25, height=1, state = DISABLED)
 prompt4.place(relx=0.5, rely=0.85, anchor=CENTER)
 
-serverhost = tkinput("enter server host")
+button5 = Button(tkwin,text = 'login',  command=login)
+button5.place(relx=0.3, rely=0.3, anchor=CENTER)
 
+button6 = Button(tkwin,text = 'create account',  command=make_account)
+button6.place(relx=0.7, rely=0.3, anchor=CENTER)
+
+serverhost = tkinput("enter server host")
 server_conn = socket(PORT)
 server_conn.connect(serverhost)
 server_conn.send("game")
-
-'''
-server_conn.send(tkinput("enter username")
-server_conn.send(tkinput("enter id"))
-
-initscript = server_conn.recv_data(poll=False)
-exec initscript
-'''
+while login != True:
+	root.update()
 
 mythread1 = threading.Thread(target = addcharacters)
 mythread1.start()
@@ -858,6 +872,9 @@ mythread1 = threading.Thread(target = sendimages)
 mythread1.start()
 
 mythread = threading.Thread(target=start,args=[serverhost])
+mythread.start()
+
+mythread = threading.Thread(target=add_others,args=[serverhost])
 mythread.start()
 
 class globe():
@@ -887,7 +904,11 @@ class globe():
 					load_code(loading[1],loading[3],loading[2])
 					loading = [False,None,None,None]
 				elif command[:15] == "load character ":
-					load_character(command[15:],default_new,(100,100))
+					print user_info[command.split()[3]]
+					if command.split()[2] in user_info[command.split()[3]][1].keys():
+						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
+					else:
+						load_character(command.split()[2],user_info[command.split()[3]][0],(100,100))
 		time.sleep(SPEED)
 		updated.update()
 		pygame.display.update(drawn.draw(screen))
@@ -934,9 +955,10 @@ Todo:
 4. add legitimate security against malicous code
 5. add map panning features, basically multiple maps running at once with warp points between them
 	-see map
-6. add "key" locks onto the infastructure
-7. write documentation in full, including the secret docs
-8. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+6. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
+7. Add "key" locks onto the infastructure
+8. Write documentation in full, including the secret docs
+9. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
 
 

@@ -15,6 +15,7 @@ img_recv = []
 chat_send = {}
 chat_recv = []
 img_data = {}
+players = []
 
 def manage_character(character,handler):
 	global characters
@@ -54,11 +55,44 @@ def manage_img(sender):
 			receiver.send_img(img)
 			img_data.update(img)
 
-DEFAULT = """
-default_new = generic
+def handle_account(connection):
+	register = connection.recv_data(poll=False)
+	if register == "login":
+		username = connection.recv_data(poll=False)
+		userid = connection.recv_data(poll=False)
+		account = open(username+"_"+userid+"_script.py","r")
+		bank = open(username+"_"+userid+"_bank.py","r")
+	elif register == "new":
+		username = connection.recv_data(poll=False)
+		userid = connection.recv_data(poll=False)
+		email = connection.recv_data(poll=False)
+		a = open(username+"_"+userid+"_script.py","w")
+		b = open(username+"_"+userid+"_bank.py","w")
+		c = open(username+"_"+userid+"_email.txt","w")
+		a.write("account_name = '"+username+"'\ndefault=generic\nothers={}")
+		b.write("10")
+		c.write(email)
+		a.close()
+		b.close()
+		c.close()
+		account = open(username+"_"+userid+"_script.py","r")
+		bank = open(username+"_"+userid+"_bank.py","r")
+	else:
+		raise RuntimeError
+	connection.send(str(bank.read()))
+	players.append(account.read())
 
-CURRENCY = 10
-"""
+def manage_adder(connection):
+	global players
+	done = []
+	for player in players:
+		connection.send(player)
+		done.append(player)
+	while True:
+		for player in players:
+			if player not in done:
+				connection.send(player)
+				done.append(player)
 
 try:
 	while True:
@@ -68,14 +102,13 @@ try:
 		print "initial contact made, getting type"
 		connection_type = connection.recv_data(poll=False)
 		print connection_type
-		if connection_type == "new_user":
-			account = open(username+"_"+nextid+".py","w")
+		if connection_type == "account_adder":
+			mythreadthing = threading.Thread(target=manage_adder,args=[connection])
+			mythreadthing.start()
 		if connection_type == "game":
 			games.append(connection)
-			#username = connection.recv_data(poll=False)
-			#userid = connection.recv_data(poll=False)
-			#account = open(username+"_"+userid+".py","r")
-			#connection.send(account.read())
+			mythreads = threading.Thread(target=handle_account,args=[connection])
+			mythreads.start()
 			print "accepted game"
 			for command in game_events:
 				connection.send_data(command)
@@ -86,13 +119,14 @@ try:
 		elif connection_type == "event_handler":
 			print "receiving event handler"
 			name = connection.recv_data(poll=False)
-			print "name:", name
+			who = connection.recv_data(poll=False)
+			print "name:", name, "who", who
 			event_handlers.update({name:connection})
 			print "accepted new event handler for character", name
 			for game in games:
 				print "sending to", game
-				game.send_data("load character "+str(name))
-				game_events.append("load character "+str(name))
+				game.send_data("load character "+str(name)+" "+who)
+				game_events.append("load character "+str(name)+" "+who)
 		elif connection_type == "character":
 			name = connection.recv_data(poll=False)
 			if name in characters:
