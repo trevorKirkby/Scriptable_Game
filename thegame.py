@@ -599,6 +599,33 @@ class wall(barrier):
 	def __init__(self,pos):
 		barrier.__init__(self,pos,"thewall.png",impermeable=True)
 
+class attribute(int):
+	def __new__(cls, *args, **kwargs):
+		return  super(attribute, cls).__new__(cls, args[0])
+	def __init__(self,value,cost,parent):
+		int.__init__(self)
+		self.cost = cost
+		self.value = value
+		self.parent = parent
+	def __add__(self,other):
+		global CURRENCY
+		if CURRENCY > self.cost*other:
+			CURRENCY -= self.cost*other
+			self.value += other
+			return attribute(self.value,self.cost)
+		else:
+			return attribute(self.value,self.cost)
+
+"""
+several types of attributes in the system:
+
+max attribute- the total of an attribute, like max health, max damage, max heal, max speed
+current attribute- stuff like health, speed
+
+Max attributes cost currency to change
+Current attributes are changeable per round based upon max attributes. Certain rules are applied that make applying your max attributes to other sprites difficult and more costly. Certain rules also need to be made to make draining practical.
+"""
+
 def load_character(name,kind,pos):
 	global serverhost
 	netsocket = socket(PORT)
@@ -606,7 +633,10 @@ def load_character(name,kind,pos):
 	netsocket.send("character")
 	netsocket.send(name)
 	avatar = kind(netsocket,pos)
-	all_characters.update({name:avatar})
+	if isinstance(avatar,character):
+		all_characters.update({name:avatar})
+	else:
+		print "rejected fraudulent character"
 	return avatar
 
 def load_code(character,newfunct,name):
