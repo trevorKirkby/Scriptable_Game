@@ -167,6 +167,25 @@ class Stationary(pygame.sprite.Sprite):
 		dy = other.rect.y - self.rect.y
 		return math.sqrt(dx*dx + dy*dy)
 
+class item():    #meant to inherit from moveable, stationary, or in rare circumstances unit
+	def __init__(self,code):
+		self.code = code
+		updated.add(self)
+		drawn.add(self)
+	def be_taken(self,parent):
+		self.parent = parent
+		self.parent.inventory.append(self)
+		load_code(parent,self.code)
+		self.save = self.rect
+		self.rect = None
+	def update(self):
+		if self.rect != None:
+			collisions = pygame.sprite.spritecollide(self, collidable, False)
+			for other in collisions:
+				if other != self:
+					if isinstance(other,unit):
+						self.be_taken(other)
+
 class unit(Moveable):
 	def __init__(self,pos,image,health,projectile_count,fire_rate,team,speed,impermeable=False,special_reload={}):
 		Moveable.__init__(self,pos,image)
@@ -184,6 +203,7 @@ class unit(Moveable):
 		self.reload = special_reload
 		self.speed = speed
 		self.impermeable = impermeable
+		self.inventory = []
 	def maintain(self):
 		self.firetime -= 1
 		for item in self.reload:
@@ -938,9 +958,7 @@ start()
 
 """
 Todo:
-1. institute accounts
-2 create a modular "item" class that modifies characters. This is what you gain from defeating an enemy. A spirit can be made to utilize a host by inheriting from item, though this is difficult
-3. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
+1. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
 	-life force (max health, regen, projected healing)
 	-damage (health removal, health drain, health sacrafice to amplify abilities)
 		-damage is actually 1 of three paired forces:
@@ -952,11 +970,11 @@ Todo:
 	-spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 	-energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 	-creation force (used to spawn new objects, AI units, and even map slices)
-4. add legitimate security against malicous code
-5. add map panning features, basically multiple maps running at once with warp points between them
+2. add legitimate security against malicous code
+3. add map panning features, basically multiple maps running at once with warp points between them
 	-see map
-6. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
-7. Add "key" locks onto the infastructure
-8. Write documentation in full, including the secret docs
-9. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+4. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
+5. Add "key" locks onto the infastructure
+6. Write documentation in full, including the secret docs
+7. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
