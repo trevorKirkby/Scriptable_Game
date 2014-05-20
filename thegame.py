@@ -960,33 +960,3 @@ Todo:
 8. Write documentation in full, including the secret docs
 9. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
-
-
-'''
-ideas:
-
-able to take image of last sprite it touched (one button to assign rect of last collision, other to assume true form, this is done by overlaying a projectile onto oneself, a slightly larger square with the same color as the background but with other rect blitted onto it)
-able to create "projectile" units and walls
-able to synthesize keypresses on all devices at once (best to do this for keys that you don't have doing anything)
-Able to possess units that died because they are no longer in groups being watched. As the system has no hook to them, you can overwrite their update function, reverse their death, and, while unable to change any attributes, can control them. Can even give possessed
-Able to heal by shooting self with a projectile of negative damage, which has a different parent. Can even create healing bases this way.
-Able to cause the wrath of the anti-cheat mainframe on a unit by shooting it with a projectile whose damage, when subtracted from the test numbers, does not change anything, but sometimes when subtracted from actual health numbers will give user irregularities in health so that it fails security tests
-Able to move walls by using the teleporter power exception of the otherwise banned move_ip function
-
-'True Form' burns up everything nearby, able to possess people at will, turn people at stone at will, immune to most other powers, really big and bright, a scripted entity that inhabits any unit you tell it to (even enemies), allowing them to be extremely powerful and assume this form. It also is technically a unit, in a sense that it has a stockpile of resources that are used on its "stats," only because the entity itself does not die but the host, these never diminish. Also has an altar building much like itself, able to inhabit anything. This will assimilate the scripts and resources of a unit into the spirit, then use part of the energy to burn up the drained unit and surrounding units. Compells nearby people towards it.
-
-silver robed ones that can combust in map changing cataclysms, cause storms, turn enemies to stone with glances, occasionally possess defeated enemies, and pool resources to channel and give power to and from the spirit entity (they permanently increase its power, and it in turn grants some help), also able to transfer resources between units that belong to you. Other, allied teams, can actually have these units. These units, while not completely powerless on their own, mostly channel power from the spirit, and do not have any useful scripts contained within themselves.
-
-dragons: 3 uniquely designed dragon units. One capable of flight, fire, extreme speed, and shooting hallucinogenic spines. Another capable of enthralling enemies, possessing them, hiding, moving quickly, and spawning shadow units and walls. A final one capable of controlling weather, and granting armies that rally to it bonuses. This one, while still formidabble in combat and fast, is best used to cause collateral affects and support for armies.
-
-troll: A troll faced unit that throws explosive rubber ducks at people. Capable of possession, usually has a herd of goats on jetpacks accompanying it. Dictated by an AI, always in a game (even one without its creator), harms everyone but those who are its allies. Just causes general chaos.
-
-tower: basically a teleporter building. but not quite, and looks waaay cooler. A really good tower graphic that reaches out of sight into the clouds in the character's territory. Teleport points are suspension-bridge/drawbridge type ramps reaching down from the clouds. Can also spawn units, and can send people jumping down to any point as well as on ramp.
-
-
-
-infastructure:
--make the security program
--make documentation for scripters, basically the source with some info not included, like the spirit class that can be used to script possession though even with this class its not easy
--make map
-'''
