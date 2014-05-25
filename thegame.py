@@ -12,10 +12,17 @@ import _tkinter
 #__import__ = import_block
 #__builtins__.__import__ = import_block
 
+def type(obj):
+	if isinstance(obj,attribute) or isinstance(obj,realtime_attribute):
+		return int
+	else:
+		return __builtins__.type(obj)
+
 SPEED = 0.025
 COLOR = (150,150,200)
 
 updated              =   pygame.sprite.RenderUpdates()
+updated2             =   pygame.sprite.RenderUpdates()
 drawn                =   pygame.sprite.RenderUpdates()
 collidable           =   pygame.sprite.RenderUpdates()
 damagers             =   pygame.sprite.RenderUpdates()
@@ -26,6 +33,8 @@ special              =   pygame.sprite.RenderUpdates()
 
 gravities            =   []
 inputters            =   []
+
+units                =   []
 
 controls = {}
 for letter in "1234567890qwertyuiopasdfghjklzxcvbnm":
@@ -187,27 +196,23 @@ class item():    #meant to inherit from moveable, stationary, or in rare circums
 						self.be_taken(other)
 
 class unit(Moveable):
-	def __init__(self,pos,image,health,projectile_count,fire_rate,team,speed,impermeable=False,special_reload={}):
+	def __init__(self,pos,image,code):
 		Moveable.__init__(self,pos,image)
-		self.projectiles = []
-		for number in range(projectile_count):
-			self.projectiles.append(None)
-		self.health = health
-		self.team = team
-		team.add(self)
 		drawn.add(self)
 		collidable.add(self)
 		updated.add(self)
-		self.firetime = fire_rate
-		self.fire_rate = fire_rate
-		self.reload = special_reload
-		self.speed = speed
-		self.impermeable = impermeable
+		units.append(self)
 		self.inventory = []
+		self.attributes = {"maxhealth":attribute(50,4,self,10,1),"maxspeed":attribute(2,20,self,5,1),"maxregen":attribute(2,14,self,5,1),"maxdmg":attribute(5,18,self,5,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(5,20,self,5,1)}
+		self.realattributes = {"health":realtime_attribute(50,self,self.attributes["maxhealth"],["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
+		self.projectiles = []
+		self.firetime = 100
+		for number in range(self.attributes["maxprojectiles"]):
+			self.projectiles.append(None)
+		if code != "":
+			load_code(self,code,"_start")
+			self._start()		
 	def maintain(self):
-		self.firetime -= 1
-		for item in self.reload:
-			self.reload[item][0] -= 1
 		index = 0
 		for projectile in self.projectiles:
 			if projectile != None:
@@ -215,50 +220,38 @@ class unit(Moveable):
 					projectile.end()
 					self.projectiles[index] = None
 			index += 1
-		collisions = pygame.sprite.spritecollide(self, damagers, False)
-		for other in collisions:
-			if other != self and other.parent != self:
-				try:
-					self.health -= other.damage
-				except AttributeError:
-					print "Error: Unit Damage Collisions:", other.__name__, "lacks the attribute self.damage used to damage object"
-					raise RuntimeError
-		if self.health <= 0:
+		if self.realattributes["health"] <= 0:
+			print "health at", self.realattributes["health"], "ending..."
 			self.end()
+		for attributething in self.attributes.values():
+			if not isinstance(attributething,attribute):
+				print attributething, "caused character annihilation"
+				print __builtins__.type(attributething)
+				self.end()
+		for attributething in self.realattributes.values():
+			if not isinstance(attributething,realtime_attribute):
+				print attributething, "caused character annihilation"
+				print __builtins__.type(attributething)
+				self.end()
 	def project(self,bolt,speed=6,direction=None,target=None,accuracy=None,aimed=False):
-		if bolt not in self.reload.keys():
-			if self.firetime > 0:
-				pass
-			else:
-				if direction == None:
-					if aimed == True:
-						direction = self.moveRelative(target,speed,exact=True)
-					else:
-						direction = self.moveRelative(target,speed)
-				index = 0
-				for projectile in self.projectiles:
-					if projectile == None:
-						self.projectiles[index] = bolt(self.rect.center,direction,self)
-						projectiles.add(self.projectiles[index])
-						updated.add(self.projectiles[index])
-						break
-					index += 1
-				self.firetime = self.fire_rate
+		print self.firetime
+		if self.firetime > 0:
+			pass
 		else:
-			if self.reload[bolt][0] > 0:
-				pass
-			else:
-				if direction == None:
+			if direction == None:
+				if aimed == True:
+					direction = self.moveRelative(target,speed,exact=True)
+				else:
 					direction = self.moveRelative(target,speed)
-				index = 0
-				for projectile in self.projectiles:
-					if projectile == None:
-						self.projectiles[index] = bolt(self.rect.center,direction,self)
-						projectiles.add(self.projectiles[index])
-						updated.add(self.projectiles[index])
-						break
-					index += 1
-				self.reload[bolt][0] = self.reload[bolt][1]
+			index = 0
+			for projectile in self.projectiles:
+				if projectile == None:
+					self.projectiles[index] = bolt(self.rect.center,direction,self)
+					projectiles.add(self.projectiles[index])
+					updated.add(self.projectiles[index])
+					self.firetime = 100
+					break
+				index += 1
 	def end(self):
 		for projectile in self.projectiles:
 			if projectile != None:
@@ -267,9 +260,7 @@ class unit(Moveable):
 		collidable.remove(self)
 		updated.remove(self)
 		special.remove(self)
-		damagers.remove(self)
 		explosion_triggers.remove(self)
-		self.team.remove(self)
 		screen.fill(COLOR,self.rect)
 	def goup(self):
 		self.directions = (0,-1)
@@ -286,11 +277,75 @@ class unit(Moveable):
 	def magnitude(self,factor):
 		return (self.directions[0]*factor,self.directions[1]*factor)
 	def inertia(self):
-		self.move(*self.magnitude(self.speed))
+		self.move(*self.magnitude(self.realattributes["speed"]))
 	def shoot(self,bolt):
 		self.project(bolt,direction=self.magnitude(10))
 	def aimshoot(self,bolt,vector):
 		self.project(bolt,direction=vector)
+	def upgrade_store(self,attr,value):
+		try:
+			attr = self.attributes[attr]
+			attr.maximum += value
+		except AttributeError:
+			pass
+	def store(self,attr,value):
+		try:
+			attr = self.attributes[attr]
+			attr.store(value)
+		except AttributeError:
+			pass
+	def withdraw(self,attr,value):
+		try:
+			attr = self.attributes[attr]
+			attr.withdraw(value)
+		except KeyError:
+			pass
+	def pipe(self,attr,realattr,value,dest):
+		#print attr, __builtins__.type(attr)
+		try:
+			attr2 = attr
+			#print attr, __builtins__.type(attr)
+			targattr = realattr
+			#print attr, __builtins__.type(attr)
+			attr = self.attributes[attr]
+			#print attr, __builtins__.type(attr)
+			if attr2 != "firerate":
+				realattr = dest.realattributes[realattr]
+			#print attr, __builtins__.type(attr)
+			if attr2 == "firerate":
+				if self != dest:
+					cost = 2
+				else:
+					cost = 1
+				total = cost*abs(value)
+				if total <= self.attributes["firerate"].current and dest.firetime > 0:
+					self.attributes["firerate"].__dict__["current"] -= total
+					dest.firetime += value
+				print self.firetime, self.attributes["firerate"].current, total
+				return
+			if attr2 in realattr.maxofnames:
+				if value == "all":
+					if attr2 != "maxdamage":
+						#if attr2 == "maxhealth":
+							#print "changing health"
+						dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr)
+					#print attr, __builtins__.type(attr)
+				elif value == "-all":
+					dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr)
+				else:
+					if attr2 != "maxdamage" or abs(value) != value:
+						dest.realattributes[targattr] = realattr.change(dest,value,passkey(),attr)
+					#print attr, __builtins__.type(attr)
+		except KeyError:
+			pass
+	def upgrade(self,attr,value):
+		try:
+			attr = self.attributes[attr]
+			attr += value
+		except KeyError:
+			pass
+	def __dir__(*args):
+		return ["__init__","__new__","pointer","wrapper"]
 
 class projectile(Moveable):
 	def __init__(self,pos,direction,image,destructcount,damager=False,boomtrigger=False,simple=True,parent=None,arc=False,explodable=False,countdown=None):
@@ -325,6 +380,7 @@ class projectile(Moveable):
 			self.rect = self.image.get_rect()
 			self.rect.center = pos
 	def update(self):
+		self.manage()
 		if self.delay > 0:
 			self.delay -= 1
 		else:
@@ -332,9 +388,10 @@ class projectile(Moveable):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self:
-					if other.impermeable == True:
-						self.end()
-						return False
+					if hasattr(other, "impermeable"):
+						if other.impermeable == True:
+							self.end()
+							return False
 			self.destructCountDown = self.destructCountDown - 1
 			if self.explodable == True:
 				if self.destructCountDown == self.countdown:
@@ -383,6 +440,47 @@ class projectile(Moveable):
 		updated.remove(self)
 		damagers.remove(self)
 		explosion_triggers.remove(self)
+	def pipe(self,attr,realattr,value,dest):
+		proceed = False
+		if pygame.sprite.collide_rect(self,dest):
+			proceed = True
+		if proceed == False:
+			print "projectile not touching target, pipe rejected"
+			return
+		try:
+			attr2 = attr
+			#print attr, __builtins__.type(attr)
+			targattr = realattr
+			#print attr, __builtins__.type(attr)
+			attr = self.parent.attributes[attr]
+			#print attr, __builtins__.type(attr)
+			if attr2 != "firerate":
+				realattr = dest.realattributes[realattr]
+			#print attr, __builtins__.type(attr)
+			if attr2 == "firerate":
+				if self.parent != dest:
+					cost = 3
+				else:
+					cost = 1
+				total = cost*abs(value)
+				if total <= self.parent.attributes["firerate"].current and dest.firetime > 0:
+					self.parent.attributes["firerate"].__dict__["current"] -= total
+					dest.firetime += value
+				#print self.parent.firetime, self.parent.attributes["firerate"].current, total
+				return
+			if attr2 in realattr.maxofnames:
+				if value == "all":
+					if attr2 != "maxdamage":
+						dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr,3,self)
+					#print attr, __builtins__.type(attr)
+				elif value == "-all":
+					dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr,3,self)
+				else:
+					if attr2 != "maxdamage" or abs(value) != value:
+						dest.realattributes[targattr] = realattr.change(dest,value,passkey(),attr,3,self)
+					#print attr, __builtins__.type(attr)
+		except KeyError:
+			pass
 
 class explodable():
 	def __init__(self,image,count,damage,triggers=explosion_triggers):
@@ -516,17 +614,12 @@ class barrier(Stationary):
 		self.impermeable = impermeable
 
 class character(unit):
-	def __init__(self,pos,image,health,projectile_count,fire_rate,team,speed,special_reload={},socket = None):
-		unit.__init__(self,pos,image,health,projectile_count,fire_rate,team,speed,special_reload=special_reload)
-		if socket != None:
-			self.socket = socket
-		else:
-			print "You need to pass a socket when you initialize the character. Character independance from sockets has been phased out, though it would be easy to change that."
-			raise RuntimeError
-		self.speed = speed
+	def __init__(self,pos,image,code,socket):
+		unit.__init__(self,pos,image,code)
 		self.directions = (1,0)
 		self.aim = [12,0]
 		self.aim2 = [12,0]
+		self.socket = socket
 	def update(self):
 		self.maintain()
 		event = "EMPTY"
@@ -538,11 +631,16 @@ class character(unit):
 					try:
 						function()
 					except Exception, e:
-						function(self)
+						print e
+						try:
+							function(self)
+						except Exception, e:
+							print e
 				else:
 					#if len(event) != 1:
 					if True:
 						print "failed event: ", event, "sync is most likely broken"
+		self.manage()
 	def exit(self):
 		raise SystemExit
 	def aiming(self,vx,vy,vmax=12):
@@ -579,42 +677,376 @@ class character(unit):
 class bolt(projectile):
 		def __init__(self,pos,direction,parent):
 			projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
+		def manage(self):
+			collisions = pygame.sprite.spritecollide(self, collidable, False)
+			for other in collisions:
+				if other != self and other != self.parent and isinstance(other,unit):
+					self.pipe("maxdamage","health",-1,other)
 
 class generic(character):
 	def __init__(self,sockets,pos):
 		self.aim = [0,0]
-		character.__init__(self,pos,"generic.png",20,3,3,pygame.sprite.RenderUpdates(),2,socket=sockets)
-	def _w(self):
+		character.__init__(self,pos,"generic.png","",sockets)
+		self.pipe("maxhealth","health","all",self)
+	def manage(self):
+		#print self.realattributes["health"]
+		self.pipe("maxhealth","health","all",self)
+		self.pipe("maxregen","health","all",self)
+		self.pipe("firerate","firetime",-1,self)
+		self.pipe("maxspeed","speed","all",self)
+		#print self.realattributes["health"]
+	def _w(self,*args):
 		self.goup()
-	def _s(self):
+	def _s(self,*args):
 		self.godown()
-	def _a(self):
+	def _a(self,*args):
 		self.goleft()
-	def _d(self):
+	def _d(self,*args):
 		self.goright()
-	def _e(self):
+	def _e(self,*args):
 		self.shoot(bolt)
 
 class wall(barrier):
 	def __init__(self,pos):
 		barrier.__init__(self,pos,"thewall.png",impermeable=True)
 
+class fake_dict2(str):
+	def __new__(cls, *args, **kwargs):
+		return  super(fake_dict, cls).__new__(cls, "Traceback (most recent call last):\n    File \"<stdin>\", line 634, in <module>\n    AttributeError: 'int' object has no attribute '__dict__'")
+	def __init__(self,*args):
+		pass
+	def __getitem__(self, key):
+		return self.__dict__[key]
+	def __setitem__(self, key, value):
+		self.__dict__[key] = value
+
+class fake_dict(dict):
+	def __new__(cls, *args, **kwargs):
+		return  super(fake_dict, cls).__new__(cls, {})
+	def __init__(self,*args):
+		pass
+	def __str__(self):
+		return "Traceback (most recent call last):\n    File \"<stdin>\", line 17, in <module>\n    AttributeError: 'int' object has no attribute '__dict__'"
+	def __repr__(self):
+		return "Traceback (most recent call last):\n    File \"<stdin>\", line 12, in <module>\n    AttributeError: 'int' object has no attribute '__dict__'"
+
+def __setattr__(self, name, value):
+		if name != "value" and name != "current" and name != "maximum" and name != "decay" and name != "pool" and name[:2] != "__":
+			self.__dict__[name] = value
+
 class attribute(int):
 	def __new__(cls, *args, **kwargs):
 		return  super(attribute, cls).__new__(cls, args[0])
-	def __init__(self,value,cost,parent):
+	def __init__(self,value,cost,parent,maximum,decay,fakedict=True,maximums=True):
 		int.__init__(self)
+		if fakedict == True:
+			self.__dict__ = fake_dict()
+		self.__setattr__ = __setattr__
 		self.cost = cost
-		self.value = value
+		self.__dict__["value"] = value
 		self.parent = parent
+		self.__dict__["current"] = self.__dict__["value"]
+		if maximums == True:
+			self.__dict__["maximum"] = attribute(maximum,12,parent,0,0,fakedict=False,maximums=False)
+			self.__dict__["decay"] = decay
+			self.__dict__["pool"] = 0
+		#updated_attr.insert(0,self)
+	def __pos__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __neg__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __abs__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __invert__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __round__(self, n):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __floor__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ceil__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __trunc__(self):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
 	def __add__(self,other):
 		global CURRENCY
 		if CURRENCY > self.cost*other:
 			CURRENCY -= self.cost*other
-			self.value += other
-			return attribute(self.value,self.cost)
+			self.__dict__["value"] += other
+			pass
+			return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
 		else:
-			return attribute(self.value,self.cost)
+			pass
+			return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __sub__(self,other):
+		global CURRENCY
+		if self.__dict__["value"] > other:
+			CURRENCY += self.cost*other
+			self.__dict__["value"] -= other
+			pass
+			return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+		else:
+			pass
+			return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __mul__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __div__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __floordiv__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __truediv__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __mod__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __divmod__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __pow__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __lshift__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __rshift__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __and__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __or__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __xor__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __iadd__(self, other):
+		pass
+		return self.__add__(other)
+	def __isub__(self, other):
+		pass
+		return self.__sub__(other)
+	def __imul__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __idiv__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ifloordiv__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __itruediv__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __imod__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ipow__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ilshift__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __irshift__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __iand__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ior__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __ixor__(self,*args):
+		pass
+		return attribute(self.__dict__["value"],self.cost,self.parent,self.maximum,self.decay)
+	def __dir__(self):
+		return dir(self.__dict__["value"])
+	def update(self):
+		#print "unreal update"
+		if self.__dict__["current"] < self.__dict__["value"]:
+			self.__dict__["current"] = self.__dict__["value"]
+		if hasattr(self,"pool"):
+			if random.choice([True,False,False,False]):
+				if self.__dict__["pool"] > 0:
+					self.__dict__["pool"] -= 1
+	def store(self,value):
+		if hasattr(self,"pool"):
+			if self.__dict__["pool"]+value <= self.__dict__["maximum"] and self.__dict__["pool"]+value >= 0 and self.__dict__["current"] >= value:
+				self.__dict__["current"] -= value
+				self.__dict__["pool"] += value/2
+	def withdraw(self,value):
+		if hasattr(self,"pool"):
+			if self.__dict__["pool"]-value <= self.__dict__["maximum"] and self.__dict__["pool"]-value >= 0 and self.__dict__["pool"] >= value:
+				self.__dict__["current"] += value
+				self.__dict__["pool"] -= value
+	def upmax(self,value):
+		if hasattr(self,"pool"):
+			self.__dict__["maximum"] += value
+
+class passkey():
+	def __init__(self):
+		pass
+
+class realtime_attribute(int):
+	def __new__(cls, *args, **kwargs):
+		return  super(realtime_attribute, cls).__new__(cls, args[0])
+	def __init__(self,value,parent,maxof,adders,name):
+		int.__init__(self)
+		self.__dict__ = fake_dict()
+		self.__setattr__ = __setattr__
+		self.name = name
+		self.cost = None
+		self.__dict__["value"] = value
+		self.parent = parent
+		self.maxofnames = adders
+		if type(maxof) == str and not isinstance(maxof,attribute):
+			self.maxof = parent.attributes[maxof]
+		else:
+			self.maxof = maxof
+		#updated_attr2.insert(0,self)
+	def __pos__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __neg__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __abs__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __invert__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __round__(self, n):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __floor__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ceil__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __trunc__(self):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __add__(self,other):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __sub__(self,other):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __mul__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __div__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __floordiv__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __truediv__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __mod__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __divmod__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __pow__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __lshift__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __rshift__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __and__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __or__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __xor__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __iadd__(self, other):
+		return self.__add__(other)
+	def __isub__(self, other):
+		return self.__sub__(other)
+	def __imul__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __idiv__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ifloordiv__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __itruediv__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __imod__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ipow__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ilshift__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __irshift__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __iand__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ior__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __ixor__(self,*args):
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def __dir__(self):
+		return dir(self.__dict__["value"])
+	def change(self,other,value,key,maxattr,cost=None,parent=None):
+		#print "real pipe"
+		if isinstance(key,passkey):
+			if cost == None:
+				group = pygame.sprite.RenderUpdates()
+				group.add(other)
+				if parent == None:
+					collisions = pygame.sprite.spritecollide(self.parent, group, False)
+				else:
+					collisions = pygame.sprite.spritecollide(parent, group, False)
+				for contact in collisions:
+					if contact != self and isinstance(contact,unit) and contact == other and other != self.parent:
+						cost = 2
+					elif other == self.parent:
+						cost = 1
+					else:
+						cost = 8
+			if maxattr.current >= cost*abs(value):
+				if abs(value)+self.__dict__["value"] <= maxattr.__dict__["current"] or abs(value)+self.__dict__["value"] <= maxattr.__dict__["value"]:
+					maxattr.__dict__["current"] -= cost*abs(value)
+					#updated_attr2.remove(self)
+					return realtime_attribute(self.__dict__["value"]+value,self.parent,self.maxof,self.maxofnames,self.name)
+		#updated_attr2.remove(self)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+	def update(self):
+		#print "real update"
+		return realtime_attribute(self.__dict__["value"]-self.maxof.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
 
 """
 several types of attributes in the system:
@@ -624,6 +1056,19 @@ current attribute- stuff like health, speed
 
 Max attributes cost currency to change
 Current attributes are changeable per round based upon max attributes. Certain rules are applied that make applying your max attributes to other sprites difficult and more costly. Certain rules also need to be made to make draining practical.
+
+system
+----------
+- Realtime attributes can be changed by the current max attribute pool per turn. However, this pool also has a third attribute, of charge-up, attatched to it. This is simply its max charge up. There is, essentially, a baseline attribute. However, you also have a supply pool, with a level of decay associated with it. You may store power in this pool (which costs more than using it) or withdraw it during a turn. The pool can be affected by external forces. This means that any other object with a pool of power may transfer its power to another player's pool, or, if you are clever, you can even drain other people's pools. This is most commonly done in several ways. A basic health draining system is already available. One can also steal any number of attributes if they manage to either encapsulate the unit in an item and draw even on their max attributes, or drain whatever realtime attributes remain present in a fallen ememy.
+
+one can also pipe their own health into other attributes.
+
+other things that cost currency:
+
+-initializing a new unit
+-initializing a new stationary
+-initializing a new item
+-changing image of sprite (only works on your own sprite)
 """
 
 def load_character(name,kind,pos):
@@ -939,7 +1384,7 @@ class globe():
 		if fore != None:
 			for item in controls:
 				if controls[item][0]:
-					print "sending", controls[item][1]
+					#print "sending", controls[item][1]
 					fore.send(controls[item][1])
 		command = "BLANK"
 		while command != None:
@@ -960,7 +1405,16 @@ class globe():
 					else:
 						load_character(command.split()[2],user_info[command.split()[3]][0],(100,100))
 		time.sleep(SPEED)
+		for item in units:
+			#print item.realattributes
+			for attr in item.realattributes.keys():
+				#item.realattributes.remove(attr)
+				#item.realattributes[attr] = attr.update()
+				item.realattributes.update({attr:item.realattributes[attr].update()})
+			for attr in item.attributes.values():
+				attr.update()
 		updated.update()
+		#print "drawing sprites"
 		pygame.display.update(drawn.draw(screen))
 		self.loading = loading
 		self.downloading = downloading
@@ -984,10 +1438,16 @@ wall((300,300))
 
 default_new = generic
 
+time.sleep(3)
+server_conn.send_data("ready")
 start()
 
 """
 Todo:
+
+give projectiles a health. they can be dispelled.
+Make it so that there is a cost for piping to self, to other that you are touching, and to distant other. Distant other should be extremely steep. Projectiles should also have a cost between distance and contact.
+
 1. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
 	-life force (max health, regen, projected healing)
 	-damage (health removal, health drain, health sacrafice to amplify abilities)

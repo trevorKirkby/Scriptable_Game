@@ -16,6 +16,7 @@ chat_send = {}
 chat_recv = []
 img_data = {}
 players = []
+finished = {}
 
 def manage_character(character,handler):
 	global characters
@@ -70,7 +71,7 @@ def handle_account(connection):
 		b = open(username+"_"+userid+"_bank.py","w")
 		c = open(username+"_"+userid+"_email.txt","w")
 		a.write("account_name = '"+username+"'\ndefault=generic\nothers={}")
-		b.write("10")
+		b.write("50")
 		c.write(email)
 		a.close()
 		b.close()
@@ -80,6 +81,9 @@ def handle_account(connection):
 	else:
 		raise RuntimeError
 	connection.send(str(bank.read()))
+	connection.recv_data(poll=False)
+	for command in game_events:
+		connection.send_data(command)
 	players.append(account.read())
 
 def manage_adder(connection):
@@ -110,8 +114,6 @@ try:
 			mythreads = threading.Thread(target=handle_account,args=[connection])
 			mythreads.start()
 			print "accepted game"
-			for command in game_events:
-				connection.send_data(command)
 		if connection_type == "sender":
 			name = connection.recv_data(poll=False)
 			senders.update({name:connection})
