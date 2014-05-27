@@ -5,7 +5,7 @@ class prototype(character):
 		self.aim = [0,0]
 		character.__init__(self,pos,"generic.png","",sockets)
 		self.pipe("maxhealth","health","all",self)
-		self.upgrade("maxdamage",1)
+		self.upgrade("maxspeed",1)
 		self.upgrade("maxspeed",1)
 		imgsend = socket(PORT)
 		imgsend.connect(serverhost)
@@ -37,15 +37,20 @@ class prototype(character):
 				collisions = pygame.sprite.spritecollide(self, collidable, False)
 				for other in collisions:
 					if other != self and other != self.parent and isinstance(other,unit):
-						self.pipe("maxdamage","health",-2,other)
+						self.parent.withdraw("maxdmg",9)
+						self.pipe("maxdmg","health",-5,other)
+						self.pipe("maxdmg","health",-3,other)
 		self.shot = bigbolt
 	def manage(self):
 		#print self.realattributes["health"]
-		self.store("maxhealth",2)
 		self.pipe("maxhealth","health","all",self)
 		self.pipe("maxregen","health","all",self)
-		self.pipe("firerate","firetime",-5,self)
+		self.pipe("firerate","firetime",-2,self)
 		self.pipe("maxspeed","speed","all",self)
+		for projectile in self.projectiles:
+			if projectile != None:
+				return
+		self.store("maxdmg",7)
 		#print self.realattributes["health"]
 	def _w(self,*args):
 		self.goup()
@@ -63,13 +68,17 @@ class prototype(character):
 			if other != self and isinstance(other,unit):
 				self.pipe("maxdamage","health",-3,other)
 	def _i(self,*args):
-		self.store("maxregen",2)
+		self.store("maxregen",1)
 	def _k(self,*args):
-		self.withdraw("maxregen",2)
+		self.withdraw("maxregen",3)
 	def _u(self,*args):
 		self.store("maxspeed",2)
 	def _j(self,*args):
 		self.withdraw("maxspeed",2)
+	def _y(self,*args):
+		self.store("firerate",1)
+	def _h(self,*args):
+		self.withdraw("firerate",10)
 
 default=generic
 others={"prototype":prototype}

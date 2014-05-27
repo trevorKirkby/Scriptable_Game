@@ -30,11 +30,16 @@ explosion_triggers   =   pygame.sprite.RenderUpdates()
 projectiles          =   pygame.sprite.RenderUpdates()
 barriers             =   pygame.sprite.RenderUpdates()
 special              =   pygame.sprite.RenderUpdates()
+everything           =   pygame.sprite.RenderUpdates()
 
 gravities            =   []
 inputters            =   []
 
 units                =   []
+
+screenpos            =   [300,300]
+
+playername           =   None
 
 controls = {}
 for letter in "1234567890qwertyuiopasdfghjklzxcvbnm":
@@ -64,6 +69,7 @@ class Moveable(pygame.sprite.Sprite):
 	def __init__(self,pos,imageFileName):
 		pygame.sprite.Sprite.__init__(self)
 		self.init2(pos,imageFileName)
+		everything.add(self)
 	def init2(self,pos,imageFileName):
 		self.right = pygame.image.load(imageFileName).convert_alpha()
 		self.left = pygame.transform.flip(self.right,True,False)
@@ -160,6 +166,7 @@ class Stationary(pygame.sprite.Sprite):
 		pygame.sprite.Sprite.__init__(self)
 		self.init2(pos,imageFileName,collide,alpha)
 		self.impermeable = impermeable
+		everything.add(self)
 	def init2(self,pos,imageFileName,collide,alpha):
 		drawn.add(self)
 		updated.add(self)
@@ -203,16 +210,19 @@ class unit(Moveable):
 		updated.add(self)
 		units.append(self)
 		self.inventory = []
-		self.attributes = {"maxhealth":attribute(50,4,self,10,1),"maxspeed":attribute(2,20,self,5,1),"maxregen":attribute(2,14,self,5,1),"maxdmg":attribute(5,18,self,5,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(5,20,self,5,1)}
-		self.realattributes = {"health":realtime_attribute(50,self,self.attributes["maxhealth"],["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
+		self.attributes = {"maxhealth":attribute(500,2,self,100,1),"maxspeed":attribute(2,25,self,40,1),"maxregen":attribute(1,50,self,50,1),"maxdmg":attribute(15,18,self,200,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(2,20,self,50,1)}
+		self.realattributes = {"health":realtime_attribute(500,self,self.attributes["maxhealth"],["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
 		self.projectiles = []
 		self.firetime = 100
 		for number in range(self.attributes["maxprojectiles"]):
 			self.projectiles.append(None)
 		if code != "":
 			load_code(self,code,"_start")
-			self._start()		
+			self._start()
+		self.directions2 = (0,0)
 	def maintain(self):
+		self.inertia()
+		self.directions = (0,0)
 		index = 0
 		for projectile in self.projectiles:
 			if projectile != None:
@@ -263,23 +273,31 @@ class unit(Moveable):
 		explosion_triggers.remove(self)
 		screen.fill(COLOR,self.rect)
 	def goup(self):
-		self.directions = (0,-1)
-		self.inertia()
+		self.directions = (list(self.directions)[0],list(self.directions)[1]-1)
+		self.directions2 = (0,-1)
+		#self.inertia()
 	def godown(self):
-		self.directions = (0,1)
-		self.inertia()
+		self.directions = (list(self.directions)[0],list(self.directions)[1]+1)
+		self.directions2 = (0,1)
+		#self.inertia()
 	def goleft(self):
-		self.directions = (-1,0)
-		self.inertia()
+		self.directions = (list(self.directions)[0]-1,list(self.directions)[1])
+		self.directions2 = (-1,0)
+		#self.inertia()
 	def goright(self):
-		self.directions = (1,0)
-		self.inertia()
+		self.directions = (list(self.directions)[0]+1,list(self.directions)[1])
+		self.directions2 = (1,0)
+		#self.inertia()
 	def magnitude(self,factor):
 		return (self.directions[0]*factor,self.directions[1]*factor)
+	def magnitude2(self,factor):
+		return (self.directions2[0]*factor,self.directions2[1]*factor)
 	def inertia(self):
+		if playername == self.name:
+			movescreen(self.magnitude(self.realattributes["speed"]))
 		self.move(*self.magnitude(self.realattributes["speed"]))
 	def shoot(self,bolt):
-		self.project(bolt,direction=self.magnitude(10))
+		self.project(bolt,direction=self.magnitude2(10))
 	def aimshoot(self,bolt,vector):
 		self.project(bolt,direction=vector)
 	def upgrade_store(self,attr,value):
@@ -290,6 +308,7 @@ class unit(Moveable):
 			pass
 	def store(self,attr,value):
 		try:
+			#print self.attributes
 			attr = self.attributes[attr]
 			attr.store(value)
 		except AttributeError:
@@ -321,9 +340,10 @@ class unit(Moveable):
 				if total <= self.attributes["firerate"].current and dest.firetime > 0:
 					self.attributes["firerate"].__dict__["current"] -= total
 					dest.firetime += value
-				print self.firetime, self.attributes["firerate"].current, total
+				#print self.firetime, self.attributes["firerate"].current, total
 				return
-			if attr2 in realattr.maxofnames:
+			if attr2 in realattr.maxofnames and attr.__dict__["current"] > 0:
+				#print "pipe", attr2, "to", realattr
 				if value == "all":
 					if attr2 != "maxdamage":
 						#if attr2 == "maxhealth":
@@ -336,12 +356,19 @@ class unit(Moveable):
 					if attr2 != "maxdamage" or abs(value) != value:
 						dest.realattributes[targattr] = realattr.change(dest,value,passkey(),attr)
 					#print attr, __builtins__.type(attr)
+				#print "pipe", attr2, "to", dest.realattributes[targattr], "done"
 		except KeyError:
 			pass
 	def upgrade(self,attr,value):
+		#print self.realattributes,self.attributes, self.realattributes.values()
 		try:
-			attr = self.attributes[attr]
-			attr += value
+			old = self.attributes[attr]
+			#print attr, old
+			self.attributes[attr] += value
+			for realattr in self.realattributes.values():
+				#print realattr, __builtins__.type(realattr), realattr.__dict__.keys(), realattr.__dict__.values()
+				if realattr.maxof == old:
+					realattr.__dict__["value"] = old.__dict__["value"]
 		except KeyError:
 			pass
 	def __dir__(*args):
@@ -441,6 +468,7 @@ class projectile(Moveable):
 		damagers.remove(self)
 		explosion_triggers.remove(self)
 	def pipe(self,attr,realattr,value,dest):
+		#print "piping..."
 		proceed = False
 		if pygame.sprite.collide_rect(self,dest):
 			proceed = True
@@ -469,6 +497,7 @@ class projectile(Moveable):
 				#print self.parent.firetime, self.parent.attributes["firerate"].current, total
 				return
 			if attr2 in realattr.maxofnames:
+				#print "pipe", attr2, "to", targattr
 				if value == "all":
 					if attr2 != "maxdamage":
 						dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr,3,self)
@@ -479,6 +508,7 @@ class projectile(Moveable):
 					if attr2 != "maxdamage" or abs(value) != value:
 						dest.realattributes[targattr] = realattr.change(dest,value,passkey(),attr,3,self)
 					#print attr, __builtins__.type(attr)
+				#print "pipe", attr2, "to", targattr, "done"
 		except KeyError:
 			pass
 
@@ -620,8 +650,13 @@ class character(unit):
 		self.aim = [12,0]
 		self.aim2 = [12,0]
 		self.socket = socket
+		self.name = None
 	def update(self):
-		self.maintain()
+		#print "\n\nnew update"
+		#for item in self.attributes.values():
+		#	print "\t", item, item.current, item.pool
+		#for item in self.realattributes.values():
+		#	print "\t", item
 		event = "EMPTY"
 		while event != None:
 			event = self.socket.recv_data()
@@ -641,6 +676,12 @@ class character(unit):
 					if True:
 						print "failed event: ", event, "sync is most likely broken"
 		self.manage()
+		self.maintain()
+		#print "\n"
+		#for item in self.attributes.values():
+		#	print "\t", item, item.current, item.pool
+		#for item in self.realattributes.values():
+		#	print "\t", item
 	def exit(self):
 		raise SystemExit
 	def aiming(self,vx,vy,vmax=12):
@@ -681,7 +722,7 @@ class bolt(projectile):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self and other != self.parent and isinstance(other,unit):
-					self.pipe("maxdamage","health",-1,other)
+					self.pipe("maxdamage","health",-5,other)
 
 class generic(character):
 	def __init__(self,sockets,pos):
@@ -690,10 +731,12 @@ class generic(character):
 		self.pipe("maxhealth","health","all",self)
 	def manage(self):
 		#print self.realattributes["health"]
-		self.pipe("maxhealth","health","all",self)
+		#print "manage called"
 		self.pipe("maxregen","health","all",self)
-		self.pipe("firerate","firetime",-1,self)
+		self.pipe("maxhealth","health","all",self)
+		self.pipe("firerate","firetime",-2,self)
 		self.pipe("maxspeed","speed","all",self)
+		print self.realattributes["health"]
 		#print self.realattributes["health"]
 	def _w(self,*args):
 		self.goup()
@@ -877,14 +920,16 @@ class attribute(int):
 		if self.__dict__["current"] < self.__dict__["value"]:
 			self.__dict__["current"] = self.__dict__["value"]
 		if hasattr(self,"pool"):
-			if random.choice([True,False,False,False]):
+			if random.choice(range(100)) == 5:
 				if self.__dict__["pool"] > 0:
-					self.__dict__["pool"] -= 1
+					self.__dict__["pool"] -= self.decay
 	def store(self,value):
 		if hasattr(self,"pool"):
 			if self.__dict__["pool"]+value <= self.__dict__["maximum"] and self.__dict__["pool"]+value >= 0 and self.__dict__["current"] >= value:
-				self.__dict__["current"] -= value
-				self.__dict__["pool"] += value/2
+				if self.__dict__["current"] - value >= 0:
+					print self.__dict__["current"], value, self.__dict__["current"] - value
+					self.__dict__["current"] = self.__dict__["current"] - value
+					self.__dict__["pool"] += value
 	def withdraw(self,value):
 		if hasattr(self,"pool"):
 			if self.__dict__["pool"]-value <= self.__dict__["maximum"] and self.__dict__["pool"]-value >= 0 and self.__dict__["pool"] >= value:
@@ -1022,6 +1067,7 @@ class realtime_attribute(int):
 		return dir(self.__dict__["value"])
 	def change(self,other,value,key,maxattr,cost=None,parent=None):
 		#print "real pipe"
+		print "pipe", maxattr.current, value, self
 		if isinstance(key,passkey):
 			if cost == None:
 				group = pygame.sprite.RenderUpdates()
@@ -1041,12 +1087,18 @@ class realtime_attribute(int):
 				if abs(value)+self.__dict__["value"] <= maxattr.__dict__["current"] or abs(value)+self.__dict__["value"] <= maxattr.__dict__["value"]:
 					maxattr.__dict__["current"] -= cost*abs(value)
 					#updated_attr2.remove(self)
+					#if self.name != "speed" or self.__dict__["value"]+value >= 0:
 					return realtime_attribute(self.__dict__["value"]+value,self.parent,self.maxof,self.maxofnames,self.name)
 		#updated_attr2.remove(self)
 		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
 	def update(self):
 		#print "real update"
-		return realtime_attribute(self.__dict__["value"]-self.maxof.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		if self.__dict__["value"]-self.maxof.__dict__["current"] > 0:
+			print "update:", self.__dict__["value"], "to", self.__dict__["value"]-self.maxof.__dict__["current"]
+			return realtime_attribute(self.__dict__["value"]-self.maxof.__dict__["current"],self.parent,self.maxof,self.maxofnames,self.name)
+		else:
+			print "update:", self.__dict__["value"], "to 0"
+			return realtime_attribute(0,self.parent,self.maxof,self.maxofnames,self.name)			
 
 """
 several types of attributes in the system:
@@ -1078,6 +1130,9 @@ def load_character(name,kind,pos):
 	netsocket.send("character")
 	netsocket.send(name)
 	avatar = kind(netsocket,pos)
+	avatar.name = name
+	#if playername == avatar.name:
+	#	movescreen((avatar.rect.x-screenpos[0],avatar.rect.y-screenpos[1]))
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
@@ -1098,6 +1153,7 @@ def addcharacters():
 	while True:
 		connected = False
 		myname = tkinput2("name unit to control")
+		playername = myname
 		if myname in eventsenders:
 			fore = eventsenders[myname]
 			codesend = codesenders[myname]
@@ -1188,6 +1244,13 @@ def keyhandleup(event):
 		controls[repr(event.char)][0] = False
 	except KeyError:
 		pass
+
+def movescreen(direction):
+	for sprite in everything:
+		screen.fill((COLOR),sprite.rect)
+		sprite.rect.move_ip(-direction[0],-direction[1])
+	screenpos[0] += direction[0]
+	screenpos[1] += direction[1]
 
 def tkinput(text):
 	global user_input1
@@ -1290,6 +1353,7 @@ def add_others(serverhost):
 			user_info.update({account_name:[default,others]})
 
 root = tk.Tk()
+root.wm_title("Name TBD")
 embed = tk.Frame(root, width = 600, height = 600)
 embed.grid(columnspan = (600), rowspan = 600)
 embed.pack(side = LEFT)
@@ -1407,12 +1471,14 @@ class globe():
 		time.sleep(SPEED)
 		for item in units:
 			#print item.realattributes
+			for attr in item.attributes.values():
+				attr.update()
 			for attr in item.realattributes.keys():
 				#item.realattributes.remove(attr)
 				#item.realattributes[attr] = attr.update()
 				item.realattributes.update({attr:item.realattributes[attr].update()})
-			for attr in item.attributes.values():
-				attr.update()
+			#for attr in item.attributes.values():
+			#	attr.update()
 		updated.update()
 		#print "drawing sprites"
 		pygame.display.update(drawn.draw(screen))
@@ -1447,24 +1513,16 @@ Todo:
 
 give projectiles a health. they can be dispelled.
 Make it so that there is a cost for piping to self, to other that you are touching, and to distant other. Distant other should be extremely steep. Projectiles should also have a cost between distance and contact.
+-spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
+-energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
+-creation (used to spawn new objects, AI units, and even map slices)
 
-1. Add builtin security features, namely the special attribute objects that are changeable only through functions that charge a price... Also make units like canines have different costs associated, like cheaper speed
-	-life force (max health, regen, projected healing)
-	-damage (health removal, health drain, health sacrafice to amplify abilities)
-		-damage is actually 1 of three paired forces:
-			-ruin (damage, drain)
-			-preservation (healing, protecting)
-			-balance (store and release)
-	-speed (motion speed, projectile speed)
-	-supply (fire rate, max number of projectiles)
-	-spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
-	-energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
-	-creation force (used to spawn new objects, AI units, and even map slices)
 2. add legitimate security against malicous code
-3. add map panning features, basically multiple maps running at once with warp points between them
-	-see map
-4. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
-5. Add "key" locks onto the infastructure
-6. Write documentation in full, including the secret docs
-7. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+3. add map panning features, add background image instead of just solid color fill
+4. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes)
+5. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
+6. Add "key" locks onto the infastructure
+7. Add a fairness filter to pre-executed strings that are brought in. Basically a list of banned phrases. This is an arms race, but that is fine. The stakes are low and I doubt anyone will critically breach it anyway.
+8. Write documentation in full, including the secret docs
+9. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
