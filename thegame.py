@@ -39,7 +39,7 @@ units                =   []
 
 screenpos            =   [300,300]
 
-playername           =   None
+spritename           =   None
 
 controls = {}
 for letter in "1234567890qwertyuiopasdfghjklzxcvbnm":
@@ -109,6 +109,10 @@ class Moveable(pygame.sprite.Sprite):
 				(toDx,toDy) = self.moveRelative(item,1)
 				dx = dx + (item.force*(toDx))/(self.rangeTo(item)/100)
 				dy = dy + (item.force*(toDy))/(self.rangeTo(item)/100)
+		if isinstance(self,character):
+			global spritename
+			if spritename == self.name:
+				movescreen((dx,dy))
 		self.rect.move_ip(dx,dy)
 	def moveRelative(self,other,speed,exact=False):
 		dx = other.rect.x - self.rect.x
@@ -293,8 +297,6 @@ class unit(Moveable):
 	def magnitude2(self,factor):
 		return (self.directions2[0]*factor,self.directions2[1]*factor)
 	def inertia(self):
-		if playername == self.name:
-			movescreen(self.magnitude(self.realattributes["speed"]))
 		self.move(*self.magnitude(self.realattributes["speed"]))
 	def shoot(self,bolt):
 		self.project(bolt,direction=self.magnitude2(10))
@@ -722,7 +724,7 @@ class bolt(projectile):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self and other != self.parent and isinstance(other,unit):
-					self.pipe("maxdamage","health",-5,other)
+					self.pipe("maxdamage","health",-1,other)
 
 class generic(character):
 	def __init__(self,sockets,pos):
@@ -1125,14 +1127,15 @@ other things that cost currency:
 
 def load_character(name,kind,pos):
 	global serverhost
+	global spritename
 	netsocket = socket(PORT)
 	netsocket.connect(serverhost)
 	netsocket.send("character")
 	netsocket.send(name)
 	avatar = kind(netsocket,pos)
 	avatar.name = name
-	#if playername == avatar.name:
-	#	movescreen((avatar.rect.x-screenpos[0],avatar.rect.y-screenpos[1]))
+	if spritename == avatar.name:
+		movescreen((avatar.rect.x-screenpos[0],avatar.rect.y-screenpos[1]))
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
@@ -1150,10 +1153,11 @@ def addcharacters():
 	global serverhost
 	global eventsenders
 	global playername
+	global spritename
 	while True:
 		connected = False
 		myname = tkinput2("name unit to control")
-		playername = myname
+		spritename = myname
 		if myname in eventsenders:
 			fore = eventsenders[myname]
 			codesend = codesenders[myname]
@@ -1463,11 +1467,12 @@ class globe():
 					load_code(loading[1],loading[3],loading[2])
 					loading = [False,None,None,None]
 				elif command[:15] == "load character ":
-					print user_info[command.split()[3]]
+					print command, user_info
 					if command.split()[2] in user_info[command.split()[3]][1].keys():
+						print user_info[command.split()[3]]
 						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
 					else:
-						load_character(command.split()[2],user_info[command.split()[3]][0],(100,100))
+						load_character(command.split()[2],user_info[command.split()[3]][0],(100-screenpos[0],100-screenpos[1]))
 		time.sleep(SPEED)
 		for item in units:
 			#print item.realattributes
@@ -1511,6 +1516,7 @@ start()
 """
 Todo:
 
+make event gathering box have an image of sprite
 give projectiles a health. they can be dispelled.
 Make it so that there is a cost for piping to self, to other that you are touching, and to distant other. Distant other should be extremely steep. Projectiles should also have a cost between distance and contact.
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
