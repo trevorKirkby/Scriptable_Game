@@ -21,6 +21,7 @@ class prototype(character):
 			self.direction = "right"
 		self.rect = self.image.get_rect()
 		self.rect.center = pos
+		self.rect.move_ip(200,0)
 		class bigbolt(projectile):
 			def __init__(self,pos,direction,parent):
 				projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
@@ -37,9 +38,9 @@ class prototype(character):
 				collisions = pygame.sprite.spritecollide(self, collidable, False)
 				for other in collisions:
 					if other != self and other != self.parent and isinstance(other,unit):
-						self.parent.withdraw("maxdmg",9)
+						self.parent.withdraw("maxdmg",15)
 						self.pipe("maxdmg","health",-5,other)
-						self.pipe("maxdmg","health",-3,other)
+						self.pipe("maxdmg","health",-5,other)
 		self.shot = bigbolt
 	def manage(self):
 		#print self.realattributes["health"]

@@ -79,6 +79,8 @@ class Moveable(pygame.sprite.Sprite):
 			self.direction = "right"
 		self.rect = self.image.get_rect()
 		self.rect.center = pos
+		self.constx = 100
+		self.consty = 100
 	def move(self,dx,dy):
 		#pygame.display.update(self.draw(screen))
 		if self in special:
@@ -113,6 +115,8 @@ class Moveable(pygame.sprite.Sprite):
 			global spritename
 			if spritename == self.name:
 				movescreen((dx,dy))
+		self.constx += dx
+		self.consty += dy
 		self.rect.move_ip(dx,dy)
 	def moveRelative(self,other,speed,exact=False):
 		dx = other.rect.x - self.rect.x
@@ -215,7 +219,7 @@ class unit(Moveable):
 		units.append(self)
 		self.inventory = []
 		self.attributes = {"maxhealth":attribute(500,2,self,100,1),"maxspeed":attribute(2,25,self,40,1),"maxregen":attribute(1,50,self,50,1),"maxdmg":attribute(15,18,self,200,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(2,20,self,50,1)}
-		self.realattributes = {"health":realtime_attribute(500,self,self.attributes["maxhealth"],["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
+		self.realattributes = {"health":realtime_attribute(0,self,"maxhealth",["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
 		self.projectiles = []
 		self.firetime = 100
 		for number in range(self.attributes["maxprojectiles"]):
@@ -267,6 +271,8 @@ class unit(Moveable):
 					break
 				index += 1
 	def end(self):
+		self.attributes = {}
+		self.realattributes = {}
 		for projectile in self.projectiles:
 			if projectile != None:
 				projectile.end()
@@ -344,7 +350,7 @@ class unit(Moveable):
 					dest.firetime += value
 				#print self.firetime, self.attributes["firerate"].current, total
 				return
-			if attr2 in realattr.maxofnames and attr.__dict__["current"] > 0:
+			if attr2 in realattr.maxofanames and attr.__dict__["current"] > 0:
 				#print "pipe", attr2, "to", realattr
 				if value == "all":
 					if attr2 != "maxdamage":
@@ -470,12 +476,12 @@ class projectile(Moveable):
 		damagers.remove(self)
 		explosion_triggers.remove(self)
 	def pipe(self,attr,realattr,value,dest):
-		#print "piping..."
+		print "projectile piping..."
 		proceed = False
 		if pygame.sprite.collide_rect(self,dest):
 			proceed = True
 		if proceed == False:
-			print "projectile not touching target, pipe rejected"
+			print "projectile not touching target, pipe rejected\n\n\n\n\n\n\n\n\n\n\n\n"
 			return
 		try:
 			attr2 = attr
@@ -498,7 +504,7 @@ class projectile(Moveable):
 					dest.firetime += value
 				#print self.parent.firetime, self.parent.attributes["firerate"].current, total
 				return
-			if attr2 in realattr.maxofnames:
+			if attr2 in realattr.maxofanames:
 				#print "pipe", attr2, "to", targattr
 				if value == "all":
 					if attr2 != "maxdamage":
@@ -734,8 +740,8 @@ class generic(character):
 	def manage(self):
 		#print self.realattributes["health"]
 		#print "manage called"
-		self.pipe("maxregen","health","all",self)
 		self.pipe("maxhealth","health","all",self)
+		self.pipe("maxregen","health","all",self)
 		self.pipe("firerate","firetime",-2,self)
 		self.pipe("maxspeed","speed","all",self)
 		print self.realattributes["health"]
@@ -776,7 +782,7 @@ class fake_dict(dict):
 		return "Traceback (most recent call last):\n    File \"<stdin>\", line 12, in <module>\n    AttributeError: 'int' object has no attribute '__dict__'"
 
 def __setattr__(self, name, value):
-		if name != "value" and name != "current" and name != "maximum" and name != "decay" and name != "pool" and name[:2] != "__":
+		if name != "value" and name != "current" and name != "maximum" and name != "decay" and name != "pool" and name[:2] != "__" and name != "rcurrent":
 			self.__dict__[name] = value
 
 class attribute(int):
@@ -791,6 +797,7 @@ class attribute(int):
 		self.__dict__["value"] = value
 		self.parent = parent
 		self.__dict__["current"] = self.__dict__["value"]
+		self.__dict__["rcurrent"] = self.__dict__["value"]
 		if maximums == True:
 			self.__dict__["maximum"] = attribute(maximum,12,parent,0,0,fakedict=False,maximums=False)
 			self.__dict__["decay"] = decay
@@ -936,6 +943,7 @@ class attribute(int):
 		if hasattr(self,"pool"):
 			if self.__dict__["pool"]-value <= self.__dict__["maximum"] and self.__dict__["pool"]-value >= 0 and self.__dict__["pool"] >= value:
 				self.__dict__["current"] += value
+				self.__dict__["rcurrent"] += value
 				self.__dict__["pool"] -= value
 	def upmax(self,value):
 		if hasattr(self,"pool"):
@@ -956,115 +964,112 @@ class realtime_attribute(int):
 		self.cost = None
 		self.__dict__["value"] = value
 		self.parent = parent
-		self.maxofnames = adders
-		if type(maxof) == str and not isinstance(maxof,attribute):
-			self.maxof = parent.attributes[maxof]
-		else:
-			self.maxof = maxof
+		self.maxofanames = adders
+		self.maxof = maxof
 		#updated_attr2.insert(0,self)
 	def __pos__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __neg__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __abs__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __invert__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __round__(self, n):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __floor__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ceil__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __trunc__(self):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __add__(self,other):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __sub__(self,other):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __mul__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __div__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __floordiv__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __truediv__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __mod__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __divmod__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __pow__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __lshift__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __rshift__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __and__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __or__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __xor__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __iadd__(self, other):
 		return self.__add__(other)
 	def __isub__(self, other):
 		return self.__sub__(other)
 	def __imul__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __idiv__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ifloordiv__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __itruediv__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __imod__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ipow__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ilshift__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __irshift__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __iand__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ior__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __ixor__(self,*args):
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def __dir__(self):
 		return dir(self.__dict__["value"])
 	def change(self,other,value,key,maxattr,cost=None,parent=None):
@@ -1086,21 +1091,24 @@ class realtime_attribute(int):
 					else:
 						cost = 8
 			if maxattr.current >= cost*abs(value):
-				if abs(value)+self.__dict__["value"] <= maxattr.__dict__["current"] or abs(value)+self.__dict__["value"] <= maxattr.__dict__["value"]:
+				if abs(value)+self.__dict__["value"] <= self.parent.attributes[self.maxof].__dict__["current"] or abs(value)+self.__dict__["value"] <= self.parent.attributes[self.maxof].__dict__["value"] or maxattr == self.parent.attributes[self.maxof]:
 					maxattr.__dict__["current"] -= cost*abs(value)
 					#updated_attr2.remove(self)
 					#if self.name != "speed" or self.__dict__["value"]+value >= 0:
-					return realtime_attribute(self.__dict__["value"]+value,self.parent,self.maxof,self.maxofnames,self.name)
+					return realtime_attribute(self.__dict__["value"]+value,self.parent,self.maxof,self.maxofanames,self.name)
 		#updated_attr2.remove(self)
-		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofnames,self.name)
+		return realtime_attribute(self.__dict__["value"],self.parent,self.maxof,self.maxofanames,self.name)
 	def update(self):
 		#print "real update"
-		if self.__dict__["value"]-self.maxof.__dict__["current"] > 0:
-			print "update:", self.__dict__["value"], "to", self.__dict__["value"]-self.maxof.__dict__["current"]
-			return realtime_attribute(self.__dict__["value"]-self.maxof.__dict__["current"],self.parent,self.maxof,self.maxofnames,self.name)
+		#the issue is, the current attribute pool is withdrawed from and spent before the update function can empty it, meaning it does not account for the flare in a given attribute, and the attribute is permanently increased.
+		if self.__dict__["value"]-self.parent.attributes[self.maxof].__dict__["current"] > 0 or self.name == "health":
+			print "update:", self.__dict__["value"], "to", self.__dict__["value"]-self.parent.attributes[self.maxof].__dict__["rcurrent"]
+			rcurrent = self.parent.attributes[self.maxof].__dict__["rcurrent"]
+			self.parent.attributes[self.maxof].__dict__["rcurrent"] = self.parent.attributes[self.maxof].__dict__["value"]
+			return realtime_attribute(self.__dict__["value"]-rcurrent,self.parent,self.maxof,self.maxofanames,self.name)
 		else:
 			print "update:", self.__dict__["value"], "to 0"
-			return realtime_attribute(0,self.parent,self.maxof,self.maxofnames,self.name)			
+			return realtime_attribute(0,self.parent,self.maxof,self.maxofanames,self.name)
 
 """
 several types of attributes in the system:
@@ -1135,7 +1143,8 @@ def load_character(name,kind,pos):
 	avatar = kind(netsocket,pos)
 	avatar.name = name
 	if spritename == avatar.name:
-		movescreen((avatar.rect.x-screenpos[0],avatar.rect.y-screenpos[1]))
+		print "panning data: ", avatar.constx, avatar.consty, screenpos
+		movescreen((avatar.constx-(screenpos[0]),avatar.consty-(screenpos[1])))
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
@@ -1161,6 +1170,9 @@ def addcharacters():
 		if myname in eventsenders:
 			fore = eventsenders[myname]
 			codesend = codesenders[myname]
+			avatar = all_characters[spritename]
+			print "panning data: ", avatar.constx, avatar.consty, screenpos
+			movescreen((avatar.constx-(screenpos[0]),avatar.consty-(screenpos[1])))
 		else:
 			fore = socket(PORT)
 			fore.connect(serverhost)
@@ -1255,6 +1267,7 @@ def movescreen(direction):
 		sprite.rect.move_ip(-direction[0],-direction[1])
 	screenpos[0] += direction[0]
 	screenpos[1] += direction[1]
+	print screenpos
 
 def tkinput(text):
 	global user_input1
@@ -1472,7 +1485,7 @@ class globe():
 						print user_info[command.split()[3]]
 						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
 					else:
-						load_character(command.split()[2],user_info[command.split()[3]][0],(100-screenpos[0],100-screenpos[1]))
+						load_character(command.split()[2],user_info[command.split()[3]][0],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
 		time.sleep(SPEED)
 		for item in units:
 			#print item.realattributes
@@ -1525,7 +1538,7 @@ Make it so that there is a cost for piping to self, to other that you are touchi
 
 2. add legitimate security against malicous code
 3. add map panning features, add background image instead of just solid color fill
-4. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes)
+4. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
 5. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
 6. Add "key" locks onto the infastructure
 7. Add a fairness filter to pre-executed strings that are brought in. Basically a list of banned phrases. This is an arms race, but that is fine. The stakes are low and I doubt anyone will critically breach it anyway.
