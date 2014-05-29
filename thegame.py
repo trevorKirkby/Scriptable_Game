@@ -70,17 +70,21 @@ class Moveable(pygame.sprite.Sprite):
 		pygame.sprite.Sprite.__init__(self)
 		self.init2(pos,imageFileName)
 		everything.add(self)
+		self.constx = 100
+		self.consty = 100
 	def init2(self,pos,imageFileName):
-		self.right = pygame.image.load(imageFileName).convert_alpha()
+		try:
+			self.right = pygame.image.load(imageFileName).convert_alpha()
+		except:
+			self.right = imageFileName
 		self.left = pygame.transform.flip(self.right,True,False)
 		self.vertical = pygame.transform.rotate(self.right,90)
 		self.image = self.right
 		if self not in projectiles:
 			self.direction = "right"
 		self.rect = self.image.get_rect()
+		print pos, "\n\n\n\n\n\n\n\n\n\n\n\n\n"
 		self.rect.center = pos
-		self.constx = 100
-		self.consty = 100
 	def move(self,dx,dy):
 		#pygame.display.update(self.draw(screen))
 		if self in special:
@@ -1483,7 +1487,7 @@ class globe():
 					print command, user_info
 					if command.split()[2] in user_info[command.split()[3]][1].keys():
 						print user_info[command.split()[3]]
-						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
+						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
 					else:
 						load_character(command.split()[2],user_info[command.split()[3]][0],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
 		time.sleep(SPEED)

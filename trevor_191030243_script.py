@@ -3,25 +3,28 @@ account_name = 'trevor'
 class prototype(character):
 	def __init__(self,sockets,pos):
 		self.aim = [0,0]
-		character.__init__(self,pos,"generic.png","",sockets)
-		self.pipe("maxhealth","health","all",self)
-		self.upgrade("maxspeed",1)
-		self.upgrade("maxspeed",1)
+		#character.__init__(self,pos,"generic.png","",sockets)
 		imgsend = socket(PORT)
 		imgsend.connect(serverhost)
 		imgsend.send_data("imagesender")
 		imgsend.send_img("wolf.png")
 		imgsend.send_img("gun.png")
-		pos = self.rect.center
-		self.right = images["wolf.png"]
-		self.left = pygame.transform.flip(self.right,True,False)
-		self.vertical = pygame.transform.rotate(self.right,90)
-		self.image = self.right
-		if self not in projectiles:
-			self.direction = "right"
-		self.rect = self.image.get_rect()
-		self.rect.center = pos
-		self.rect.move_ip(200,0)
+		character.__init__(self,pos,images["wolf.png"],"",sockets)
+		self.pipe("maxhealth","health","all",self)
+		self.upgrade("maxspeed",1)
+		self.upgrade("maxspeed",1)
+		#pos = self.rect.center
+		#self.right = images["wolf.png"]
+		#self.left = pygame.transform.flip(self.right,True,False)
+		#self.vertical = pygame.transform.rotate(self.right,90)
+		#self.image = self.right
+		#if self not in projectiles:
+		#	self.direction = "right"
+		#self.rect = self.image.get_rect()
+		#self.rect.center = pos
+		#self.constx = 100
+		#self.consty = 100
+		#self.rect.move_ip(200,0)
 		class bigbolt(projectile):
 			def __init__(self,pos,direction,parent):
 				projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
