@@ -20,6 +20,9 @@ def type(obj):
 
 SPEED = 0.025
 COLOR = (150,150,200)
+background = pygame.image.load("background.png").convert()
+background = background.get_rect()
+background.center = (300,300) #because background is not part of "everything", it is actually fairly easy to maintain.
 
 updated              =   pygame.sprite.RenderUpdates()
 updated2             =   pygame.sprite.RenderUpdates()
@@ -64,6 +67,14 @@ user_info       =  {}
 CURRENCY = 0
 login = False
 playername = None
+
+#def erase(sprite):
+#	if background.contains(sprite.rect):
+#		screen.blit(background,sprite.rect.topleft,(30,30,80,80))
+#	elif:
+#
+#	else:
+#		screen.fill((COLOR),sprite.rect)
 
 class Moveable(pygame.sprite.Sprite):
 	def __init__(self,pos,imageFileName):
@@ -1535,6 +1546,8 @@ Todo:
 
 make event gathering box have an image of sprite
 give projectiles a health. they can be dispelled.
+make image changing protocol documented, maybe. Perhaps this should be difficult, though. I think it should be both difficult and costing.
+make fairness string checker
 Make it so that there is a cost for piping to self, to other that you are touching, and to distant other. Distant other should be extremely steep. Projectiles should also have a cost between distance and contact.
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 -energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
