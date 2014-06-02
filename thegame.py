@@ -20,9 +20,6 @@ def type(obj):
 
 SPEED = 0.025
 COLOR = (150,150,200)
-background = pygame.image.load("background.png").convert()
-background = background.get_rect()
-background.center = (300,300) #because background is not part of "everything", it is actually fairly easy to maintain.
 
 updated              =   pygame.sprite.RenderUpdates()
 updated2             =   pygame.sprite.RenderUpdates()
@@ -34,6 +31,7 @@ projectiles          =   pygame.sprite.RenderUpdates()
 barriers             =   pygame.sprite.RenderUpdates()
 special              =   pygame.sprite.RenderUpdates()
 everything           =   pygame.sprite.RenderUpdates()
+backs                =   pygame.sprite.RenderUpdates()
 
 gravities            =   []
 inputters            =   []
@@ -68,14 +66,6 @@ CURRENCY = 0
 login = False
 playername = None
 
-#def erase(sprite):
-#	if background.contains(sprite.rect):
-#		screen.blit(background,sprite.rect.topleft,(30,30,80,80))
-#	elif:
-#
-#	else:
-#		screen.fill((COLOR),sprite.rect)
-
 class Moveable(pygame.sprite.Sprite):
 	def __init__(self,pos,imageFileName):
 		pygame.sprite.Sprite.__init__(self)
@@ -101,6 +91,7 @@ class Moveable(pygame.sprite.Sprite):
 		if self in special:
 			pygame.display.update(special.draw(screen))
 		#print COLOR
+		#erase(self)
 		screen.fill((COLOR),self.rect)
 		#print COLOR
 		if dx > 0:
@@ -1280,6 +1271,7 @@ def movescreen(direction):
 	for sprite in everything:
 		screen.fill((COLOR),sprite.rect)
 		sprite.rect.move_ip(-direction[0],-direction[1])
+	pygame.display.update(backs.draw(screen))
 	screenpos[0] += direction[0]
 	screenpos[1] += direction[1]
 	print screenpos
@@ -1396,6 +1388,14 @@ os.environ['SDL_VIDEODRIVER'] = 'windib'
 
 pygame.init()
 screen = pygame.display.set_mode((600,600))
+
+class background(Stationary):
+	def __init__(self):
+		Stationary.__init__(self,(300,300),"background.png",False,alpha=True)
+		drawn.remove(self)
+		backs.add(self)
+
+back = background()
 
 eventgetter = Text(tkwin, width=10,height=5, state = DISABLED)
 eventgetter.place(relx=0.5, rely=0.15, anchor=CENTER)
@@ -1514,6 +1514,7 @@ class globe():
 			#	attr.update()
 		updated.update()
 		#print "drawing sprites"
+		backs.draw(screen)
 		pygame.display.update(drawn.draw(screen))
 		self.loading = loading
 		self.downloading = downloading
@@ -1523,6 +1524,7 @@ def start():
 	global server_conn
 	screen.fill((COLOR))
 	pygame.display.flip()
+	pygame.display.update(backs.draw(screen))
 	pygame.display.update(drawn.draw(screen))
 	game = globe()
 	marker = 0
