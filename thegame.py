@@ -119,6 +119,14 @@ class Moveable(pygame.sprite.Sprite):
 				(toDx,toDy) = self.moveRelative(item,1)
 				dx = dx + (item.force*(toDx))/(self.rangeTo(item)/100)
 				dy = dy + (item.force*(toDy))/(self.rangeTo(item)/100)
+		if self.rect.x < 0:
+			dx = 1
+		if self.rect.x > 4500:
+			dx = -1
+		if self.rect.y < 0:
+			dy = 1
+		if self.rect.y > 4500:
+			dy = -1
 		if isinstance(self,character):
 			global spritename
 			if spritename == self.name:
@@ -1545,6 +1553,7 @@ class globe():
 		#print "drawing sprites"
 		#backs.draw(screen)
 		#pygame.display.update(drawn.draw(screen))
+		doublebuffer.fill((COLOR),back.rect)
 		backs.draw(doublebuffer)
 		drawn.draw(doublebuffer)
 		screen.blit(doublebuffer,(-screenpos[0],-screenpos[1]))
@@ -1593,7 +1602,7 @@ Give projectiles a health. They can be blocked in this way. They should, perhaps
 -creation (used to spawn new objects, AI units, and even map slices)
 -presence (allows images and image modifications, along with collideability or lack thereof (toggling collideability or changing image costs))
 
-1. add double buffer to display, optimize updates, especially with screen panning
+1. add double buffer to display, optimize updates, especially with screen panning. add animation. fix alpha transparency problem.
 2. add legitimate security against malicous code, sandboxes
 3. make a functioning change image function
 4. upgrade explodables to conformity
