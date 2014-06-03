@@ -1390,6 +1390,7 @@ os.environ['SDL_VIDEODRIVER'] = 'windib'
 
 pygame.init()
 screen = pygame.display.set_mode((600,600))
+doublebuffer = pygame.Surface((4500,4500))
 
 class background(Stationary):
 	def __init__(self):
@@ -1518,6 +1519,8 @@ class globe():
 		#print "drawing sprites"
 		backs.draw(screen)
 		pygame.display.update(drawn.draw(screen))
+		backs.draw(doublebuffer)
+		drawn.draw(doublebuffer)
 		self.loading = loading
 		self.downloading = downloading
 		self.imgdata = imgdata
@@ -1528,6 +1531,8 @@ def start():
 	pygame.display.flip()
 	pygame.display.update(backs.draw(screen))
 	pygame.display.update(drawn.draw(screen))
+	backs.draw(doublebuffer)
+	drawn.draw(doublebuffer)
 	game = globe()
 	marker = 0
 	while True:
@@ -1548,21 +1553,23 @@ start()
 """
 Todo:
 
-make event gathering box have an image of sprite
-give projectiles a health. they can be dispelled.
-make image changing protocol documented, maybe. Perhaps this should be difficult, though. I think it should be both difficult and costing.
-make fairness string checker
-Make it so that there is a cost for piping to self, to other that you are touching, and to distant other. Distant other should be extremely steep. Projectiles should also have a cost between distance and contact.
+Make the main loop and similar things more organized. More modularized functions.
+Make event gathering box have name of currently focused sprite.
+Give projectiles a health. They can be blocked in this way. They should, perhaps, also have speed. This also permits one to pipe low speed towards them.
+
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 -energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 -creation (used to spawn new objects, AI units, and even map slices)
+-presence (allows images and image modifications, along with collideability or lack thereof (toggling collideability or changing image costs))
 
-2. add legitimate security against malicous code
-3. add map panning features, add background image instead of just solid color fill
-4. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
-5. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
-6. Add "key" locks onto the infastructure
-7. Add a fairness filter to pre-executed strings that are brought in. Basically a list of banned phrases. This is an arms race, but that is fine. The stakes are low and I doubt anyone will critically breach it anyway.
-8. Write documentation in full, including the secret docs
-9. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+1. add double buffer to display, optimize updates, especially with screen panning
+2. add legitimate security against malicous code, sandboxes
+3. make a functioning change image function
+4. upgrade explodables to conformity
+5. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
+6. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
+7. Add pre-exec string checker to ban things
+8. Add "key" locks onto the infastructure
+9. Write documentation in full, including the secret docs
+10. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """
