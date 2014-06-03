@@ -8,6 +8,10 @@ class prototype(character):
 		imgsend.connect(serverhost)
 		imgsend.send_data("imagesender")
 		imgsend.send_img("wolf.png")
+		imgsend.send_img("wolf0.png")
+		imgsend.send_img("wolf1.png")
+		imgsend.send_img("wolf2.png")
+		imgsend.send_img("wolf3.png")
 		imgsend.send_img("gun.png")
 		character.__init__(self,pos,images["wolf.png"],"",sockets)
 		self.pipe("maxhealth","health","all",self)
@@ -45,6 +49,7 @@ class prototype(character):
 						self.pipe("maxdmg","health",-5,other)
 						self.pipe("maxdmg","health",-5,other)
 		self.shot = bigbolt
+		self.indexes = 0.0
 	def manage(self):
 		#print self.realattributes["health"]
 		self.pipe("maxhealth","health","all",self)
@@ -56,6 +61,17 @@ class prototype(character):
 				return
 		self.store("maxdmg",7)
 		#print self.realattributes["health"]
+		self.indexes += 0.25
+		if self.indexes == 5.0:
+			self.indexes = 1.0
+		if self.indexes == 1.0:
+			self.changeimg(images["wolf0.png"])
+		if self.indexes == 2.0:
+			self.changeimg(images["wolf1.png"])
+		if self.indexes == 3.0:
+			self.changeimg(images["wolf2.png"])
+		if self.indexes == 4.0:
+			self.changeimg(images["wolf3.png"])
 	def _w(self,*args):
 		self.goup()
 	def _s(self,*args):

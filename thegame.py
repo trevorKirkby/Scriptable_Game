@@ -387,6 +387,8 @@ class unit(Moveable):
 			pass
 	def __dir__(*args):
 		return ["__init__","__new__","pointer","wrapper"]
+	def changeimg(self,image):
+		self.rect = image.get_rect()
 
 class projectile(Moveable):
 	def __init__(self,pos,direction,image,destructcount,damager=False,boomtrigger=False,simple=True,parent=None,arc=False,explodable=False,countdown=None):
@@ -652,8 +654,8 @@ class explodable_stationary():
 		explosion_triggers.remove(self)
 
 class barrier(Stationary):
-	def __init__(self,pos,imageFileName,impermeable=False):
-		Stationary.__init__(self,pos,imageFileName,True)
+	def __init__(self,pos,imageFileName,impermeable=False,alphas=False):
+		Stationary.__init__(self,pos,imageFileName,True,alpha=alphas)
 		barriers.add(self)
 		self.impermeable = impermeable
 
@@ -765,7 +767,7 @@ class generic(character):
 
 class wall(barrier):
 	def __init__(self,pos):
-		barrier.__init__(self,pos,"thewall.png",impermeable=True)
+		barrier.__init__(self,pos,"thewall.png",impermeable=True,alphas=True)
 
 class fake_dict2(str):
 	def __new__(cls, *args, **kwargs):
