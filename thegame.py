@@ -38,7 +38,7 @@ inputters            =   []
 
 units                =   []
 
-screenpos            =   [300,300]
+screenpos            =   [0,0]
 
 spritename           =   None
 
@@ -71,8 +71,8 @@ class Moveable(pygame.sprite.Sprite):
 		pygame.sprite.Sprite.__init__(self)
 		self.init2(pos,imageFileName)
 		everything.add(self)
-		self.constx = 100
-		self.consty = 100
+		#self.constx = 100
+		#self.consty = 100
 	def init2(self,pos,imageFileName):
 		try:
 			self.right = pygame.image.load(imageFileName).convert_alpha()
@@ -89,10 +89,12 @@ class Moveable(pygame.sprite.Sprite):
 	def move(self,dx,dy):
 		#pygame.display.update(self.draw(screen))
 		if self in special:
-			pygame.display.update(special.draw(screen))
+			#pygame.display.update(special.draw(screen))
+			pygame.display.update(doublebuffer.draw(screen))
 		#print COLOR
 		#erase(self)
-		screen.fill((COLOR),self.rect)
+		doublebuffer.fill((COLOR),self.rect)
+		#screen.fill((COLOR),self.rect)
 		#print COLOR
 		if dx > 0:
 			self.image = self.right
@@ -121,8 +123,8 @@ class Moveable(pygame.sprite.Sprite):
 			global spritename
 			if spritename == self.name:
 				movescreen((dx,dy))
-		self.constx += dx
-		self.consty += dy
+		#self.constx += dx
+		#self.consty += dy
 		self.rect.move_ip(dx,dy)
 	def moveRelative(self,other,speed,exact=False):
 		dx = other.rect.x - self.rect.x
@@ -287,7 +289,8 @@ class unit(Moveable):
 		updated.remove(self)
 		special.remove(self)
 		explosion_triggers.remove(self)
-		screen.fill(COLOR,self.rect)
+		doublebuffer.fill((COLOR),self.rect)
+		#screen.fill(COLOR,self.rect)
 	def goup(self):
 		self.directions = (list(self.directions)[0],list(self.directions)[1]-1)
 		self.directions2 = (0,-1)
@@ -427,7 +430,8 @@ class projectile(Moveable):
 		if self.delay > 0:
 			self.delay -= 1
 		else:
-			screen.fill((COLOR),self.rect)
+			doublebuffer.fill((COLOR),self.rect)
+			#screen.fill((COLOR),self.rect)
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self:
@@ -540,7 +544,8 @@ class explodable():
 		self.triggers = triggers
 	def destruct(self):
 		self.x = self.rect.center
-		screen.fill((COLOR),self.rect)
+		#screen.fill((COLOR),self.rect)
+		doublebuffer.fill((COLOR),self.rect)
 		self.image = self.explosion
 		self.rect = self.image.get_rect()
 		self.rect.center = self.x
@@ -558,7 +563,8 @@ class explodable():
 				self.countdown = self.countdown - 1
 			if self.countdown == 0:
 				damagers.remove(self)
-				screen.fill((COLOR),self.rect)
+				#screen.fill((COLOR),self.rect)
+				doublebuffer.fill((COLOR),self.rect)
 				self.end()
 		return self.exploded
 	def end(self):
@@ -581,7 +587,8 @@ class explodable_projectile(projectile):
 		self.triggers = triggers
 	def destruct(self):
 		self.x = self.rect.center
-		screen.fill((COLOR),self.rect)
+		#screen.fill((COLOR),self.rect)
+		doublebuffer.fill((COLOR),self.rect)
 		self.image = self.explosion
 		self.rect = self.image.get_rect()
 		self.rect.center = self.x
@@ -600,7 +607,8 @@ class explodable_projectile(projectile):
 				self.countdown = self.countdown - 1
 			if self.countdown == 0:
 				damagers.remove(self)
-				screen.fill((COLOR),self.rect)
+				#screen.fill((COLOR),self.rect)
+				doublebuffer.fill((COLOR),self.rect)
 				self.end()
 				return False
 		return projectile.update(self)
@@ -625,7 +633,8 @@ class explodable_stationary():
 		self.triggers = triggers
 	def destruct(self):
 		self.x = self.rect.center
-		screen.fill((COLOR),self.rect)
+		#screen.fill((COLOR),self.rect)
+		doublebuffer.fill((COLOR),self.rect)
 		self.image = self.explosion
 		self.rect = self.image.get_rect()
 		self.rect.center = self.x
@@ -643,7 +652,8 @@ class explodable_stationary():
 				self.countdown = self.countdown - 1
 			if self.countdown == 0:
 				damagers.remove(self)
-				screen.fill((COLOR),self.rect)
+				#screen.fill((COLOR),self.rect)
+				doublebuffer.fill((COLOR),self.rect)
 				self.end()
 		return self.exploded
 	def end(self):
@@ -1151,8 +1161,8 @@ def load_character(name,kind,pos):
 	avatar = kind(netsocket,pos)
 	avatar.name = name
 	if spritename == avatar.name:
-		print "panning data: ", avatar.constx, avatar.consty, screenpos
-		movescreen((avatar.constx-(screenpos[0]),avatar.consty-(screenpos[1])))
+		#print "panning data: ", avatar.constx, avatar.consty, screenpos
+		setscreen((avatar.rect.x-300,avatar.rect.y-300))
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
@@ -1179,8 +1189,7 @@ def addcharacters():
 			fore = eventsenders[myname]
 			codesend = codesenders[myname]
 			avatar = all_characters[spritename]
-			print "panning data: ", avatar.constx, avatar.consty, screenpos
-			movescreen((avatar.constx-(screenpos[0]),avatar.consty-(screenpos[1])))
+			setscreen((avatar.rect.x-300,avatar.rect.y-300))
 		else:
 			fore = socket(PORT)
 			fore.connect(serverhost)
@@ -1270,12 +1279,27 @@ def keyhandleup(event):
 		pass
 
 def movescreen(direction):
-	for sprite in everything:
-		screen.fill((COLOR),sprite.rect)
-		sprite.rect.move_ip(-direction[0],-direction[1])
-	pygame.display.update(backs.draw(screen))
+	#for sprite in everything:
+		#screen.fill((COLOR),sprite.rect)
+		#doublebuffer.fill((COLOR),sprite.rect)
+		#sprite.rect.move_ip(-direction[0],-direction[1])
+	#pygame.display.update(backs.draw(screen))
+	#backs.draw(doublebuffer)
+	#optimize this
 	screenpos[0] += direction[0]
 	screenpos[1] += direction[1]
+	print screenpos
+
+def setscreen(direction):
+	#for sprite in everything:
+		#screen.fill((COLOR),sprite.rect)
+		#doublebuffer.fill((COLOR),sprite.rect)
+		#sprite.rect.move_ip(-direction[0],-direction[1])
+	#pygame.display.update(backs.draw(screen))
+	#backs.draw(doublebuffer)
+	#optimize this
+	screenpos[0] = direction[0]
+	screenpos[1] = direction[1]
 	print screenpos
 
 def tkinput(text):
@@ -1501,9 +1525,11 @@ class globe():
 					print command, user_info
 					if command.split()[2] in user_info[command.split()[3]][1].keys():
 						print user_info[command.split()[3]]
-						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
+						#load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
+						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
 					else:
-						load_character(command.split()[2],user_info[command.split()[3]][0],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
+						#load_character(command.split()[2],user_info[command.split()[3]][0],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
+						load_character(command.split()[2],user_info[command.split()[3]][0],(100,100))
 		time.sleep(SPEED)
 		for item in units:
 			#print item.realattributes
@@ -1517,22 +1543,27 @@ class globe():
 			#	attr.update()
 		updated.update()
 		#print "drawing sprites"
-		backs.draw(screen)
-		pygame.display.update(drawn.draw(screen))
+		#backs.draw(screen)
+		#pygame.display.update(drawn.draw(screen))
 		backs.draw(doublebuffer)
 		drawn.draw(doublebuffer)
+		screen.blit(doublebuffer,(-screenpos[0],-screenpos[1]))
+		pygame.display.flip()
 		self.loading = loading
 		self.downloading = downloading
 		self.imgdata = imgdata
 
 def start():
 	global server_conn
-	screen.fill((COLOR))
+	#screen.fill((COLOR))
+	doublebuffer.fill((COLOR))
 	pygame.display.flip()
-	pygame.display.update(backs.draw(screen))
-	pygame.display.update(drawn.draw(screen))
+	#pygame.display.update(backs.draw(screen))
+	#pygame.display.update(drawn.draw(screen))
 	backs.draw(doublebuffer)
 	drawn.draw(doublebuffer)
+	screen.blit(doublebuffer,(-screenpos[0],-screenpos[1]))
+	pygame.display.flip()
 	game = globe()
 	marker = 0
 	while True:
