@@ -133,6 +133,12 @@ class Moveable(pygame.sprite.Sprite):
 				movescreen((dx,dy))
 		#self.constx += dx
 		#self.consty += dy
+		if hasattr(self,"animate_move"):
+			if dx != 0 or dy != 0:
+				try:
+					self.animate_move(dx,dy)
+				except Exception, e:
+					print e
 		self.rect.move_ip(dx,dy)
 	def moveRelative(self,other,speed,exact=False):
 		dx = other.rect.x - self.rect.x
@@ -399,7 +405,20 @@ class unit(Moveable):
 	def __dir__(*args):
 		return ["__init__","__new__","pointer","wrapper"]
 	def changeimg(self,image):
+		pos = self.rect.center
+		self.image = image
+		self.right = image
+		self.left = pygame.transform.flip(image,True,False)
+		self.vertical = pygame.transform.rotate(image,90)
+		if self.direction == "right":
+			self.image = self.right
+		elif self.direction == "left":
+			self.image = self.left
+		else:
+			print "direction value for moveable unit invalid"
+			raise RuntimeError
 		self.rect = image.get_rect()
+		self.rect.center = pos
 
 class projectile(Moveable):
 	def __init__(self,pos,direction,image,destructcount,damager=False,boomtrigger=False,simple=True,parent=None,arc=False,explodable=False,countdown=None):
@@ -756,7 +775,7 @@ class bolt(projectile):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self and other != self.parent and isinstance(other,unit):
-					self.pipe("maxdamage","health",-1,other)
+					self.pipe("maxdamage","health",-4,other)
 
 class generic(character):
 	def __init__(self,sockets,pos):
@@ -1426,7 +1445,7 @@ doublebuffer = pygame.Surface((4500,4500))
 
 class background(Stationary):
 	def __init__(self):
-		Stationary.__init__(self,(300,300),"background.png",False,alpha=True)
+		Stationary.__init__(self,(500,500),"background.png",False,alpha=True)
 		drawn.remove(self)
 		backs.add(self)
 
@@ -1600,7 +1619,7 @@ Give projectiles a health. They can be blocked in this way. They should, perhaps
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 -energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 -creation (used to spawn new objects, AI units, and even map slices)
--presence (allows images and image modifications, along with collideability or lack thereof (toggling collideability or changing image costs))
+-presence (allows images and image modifications, along with collideability or lack thereof (toggling collideability or changing image costs)) animated motion costs some but less
 
 1. add double buffer to display, optimize updates, especially with screen panning. add animation. fix alpha transparency problem.
 2. add legitimate security against malicous code, sandboxes
