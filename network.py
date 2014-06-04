@@ -252,7 +252,9 @@ def portscan(host):
 	return output
 
 def connect_wifi(name):
-    call("netsh wlan connect interface=\"Wireless Network Connection\" name=\""+name+"\"")
+	print "warning-- connect_wifi only works on windows"
+	call("netsh wlan connect interface=\"Wireless Network Connection\" name=\""+name+"\"")
 
 def disconnect_wifi():
+	print "warning-- disconnect_wifi only works on windows"
 	call("netsh wlan disconnect interface=\"Wireless Network Connection\"")

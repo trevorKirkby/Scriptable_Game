@@ -1430,17 +1430,21 @@ def add_others(serverhost):
 			user_info.update({account_name:[default,others]})
 
 root = tk.Tk()
-root.wm_title("Name TBD")
-embed = tk.Frame(root, width = 600, height = 600)
+root.wm_title("OpenBox")
+embed = tk.Frame(root, width = ((root.winfo_screenwidth()/5)*4)-25, height = root.winfo_screenheight()-100)
 embed.grid(columnspan = (600), rowspan = 600)
-embed.pack(side = LEFT)
-tkwin = tk.Frame(root, width = 200, height = 500)
-tkwin.pack(side = RIGHT)
+embed.pack(side=LEFT)
+tkwin = tk.Frame(root, width = (root.winfo_screenwidth()/5)-25, height = root.winfo_screenheight()-100)
+tkwin.pack(side=RIGHT)
 os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
-os.environ['SDL_VIDEODRIVER'] = 'windib'
+if sys.platform == "win32":
+	os.environ['SDL_VIDEODRIVER'] = 'windib'
+if len(sys.argv) > 1:
+	if sys.argv[1] == "-f":
+		root.attributes("-fullscreen", True)
 
 pygame.init()
-screen = pygame.display.set_mode((600,600))
+screen = pygame.display.set_mode((root.winfo_screenwidth()-300, root.winfo_screenheight()-100))
 doublebuffer = pygame.Surface((4500,4500))
 
 class background(Stationary):
@@ -1619,16 +1623,15 @@ Give projectiles a health. They can be blocked in this way. They should, perhaps
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 -energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 -creation (used to spawn new objects, AI units, and even map slices)
--presence (allows images and image modifications, along with collideability or lack thereof (toggling collideability or changing image costs)) animated motion costs some but less
+-visual (Allows changing images, animated motion costs some but less... This attribute almost always requires storage to utilize at all, except in the case of animation)
 
-1. add double buffer to display, optimize updates, especially with screen panning. add animation. fix alpha transparency problem.
-2. add legitimate security against malicous code, sandboxes
-3. make a functioning change image function
-4. upgrade explodables to conformity
-5. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
-6. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
-7. Add pre-exec string checker to ban things
-8. Add "key" locks onto the infastructure
-9. Write documentation in full, including the secret docs
-10. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+note- items can inherit from projectiles as well as units, hence multiple influence
+
+1. upgrade explodables to conformity
+2. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
+3. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
+4. Add pre-exec string checker to ban things
+5. Add "key" locks onto the infastructure
+6. Write documentation in full, including the secret docs
+7. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
 """

@@ -61,17 +61,19 @@ class prototype(character):
 				return
 		self.store("maxdmg",7)
 		#print self.realattributes["health"]
-		self.indexes += 0.25
-		if self.indexes == 5.0:
-			self.indexes = 1.0
-		if self.indexes == 1.0:
-			self.changeimg(images["wolf0.png"])
-		if self.indexes == 2.0:
-			self.changeimg(images["wolf1.png"])
-		if self.indexes == 3.0:
-			self.changeimg(images["wolf2.png"])
-		if self.indexes == 4.0:
-			self.changeimg(images["wolf3.png"])
+	def animate_move(self,dx,dy):
+		if dx != 0:
+			self.indexes += 0.25
+			if self.indexes == 5.0:
+				self.indexes = 1.0
+			if self.indexes == 1.0:
+				self.changeimg(images["wolf0.png"])
+			if self.indexes == 2.0:
+				self.changeimg(images["wolf1.png"])
+			if self.indexes == 3.0:
+				self.changeimg(images["wolf2.png"])
+			if self.indexes == 4.0:
+				self.changeimg(images["wolf3.png"])
 	def _w(self,*args):
 		self.goup()
 	def _s(self,*args):
