@@ -25,8 +25,6 @@ updated              =   pygame.sprite.RenderUpdates()
 updated2             =   pygame.sprite.RenderUpdates()
 drawn                =   pygame.sprite.RenderUpdates()
 collidable           =   pygame.sprite.RenderUpdates()
-damagers             =   pygame.sprite.RenderUpdates()
-explosion_triggers   =   pygame.sprite.RenderUpdates()
 projectiles          =   pygame.sprite.RenderUpdates()
 barriers             =   pygame.sprite.RenderUpdates()
 special              =   pygame.sprite.RenderUpdates()
@@ -84,7 +82,7 @@ class Moveable(pygame.sprite.Sprite):
 		if self not in projectiles:
 			self.direction = "right"
 		self.rect = self.image.get_rect()
-		print pos, "\n\n\n\n\n\n\n\n\n\n\n\n\n"
+		#print pos, "\n\n\n\n\n\n\n\n\n\n\n\n\n"
 		self.rect.center = pos
 	def move(self,dx,dy):
 		#pygame.display.update(self.draw(screen))
@@ -192,10 +190,9 @@ class Moveable(pygame.sprite.Sprite):
 		return math.sqrt(dx*dx + dy*dy)
 
 class Stationary(pygame.sprite.Sprite):
-	def __init__(self,pos,imageFileName,collide,impermeable=False,alpha=False):
+	def __init__(self,pos,imageFileName,collide,alpha):
 		pygame.sprite.Sprite.__init__(self)
 		self.init2(pos,imageFileName,collide,alpha)
-		self.impermeable = impermeable
 		everything.add(self)
 	def init2(self,pos,imageFileName,collide,alpha):
 		drawn.add(self)
@@ -261,20 +258,20 @@ class unit(Moveable):
 					self.projectiles[index] = None
 			index += 1
 		if self.realattributes["health"] <= 0:
-			print "health at", self.realattributes["health"], "ending..."
+			#print "health at", self.realattributes["health"], "ending..."
 			self.end()
 		for attributething in self.attributes.values():
 			if not isinstance(attributething,attribute):
-				print attributething, "caused character annihilation"
-				print __builtins__.type(attributething)
+				#print attributething, "caused character annihilation"
+				#print __builtins__.type(attributething)
 				self.end()
 		for attributething in self.realattributes.values():
 			if not isinstance(attributething,realtime_attribute):
-				print attributething, "caused character annihilation"
-				print __builtins__.type(attributething)
+				#print attributething, "caused character annihilation"
+				#print __builtins__.type(attributething)
 				self.end()
 	def project(self,bolt,speed=6,direction=None,target=None,accuracy=None,aimed=False):
-		print self.firetime
+		#print self.firetime
 		if self.firetime > 0:
 			pass
 		else:
@@ -302,7 +299,6 @@ class unit(Moveable):
 		collidable.remove(self)
 		updated.remove(self)
 		special.remove(self)
-		explosion_triggers.remove(self)
 		doublebuffer.fill((COLOR),self.rect)
 		#screen.fill(COLOR,self.rect)
 	def goup(self):
@@ -421,28 +417,13 @@ class unit(Moveable):
 		self.rect.center = pos
 
 class projectile(Moveable):
-	def __init__(self,pos,direction,image,destructcount,damager=False,boomtrigger=False,simple=True,parent=None,arc=False,explodable=False,countdown=None):
+	def __init__(self,pos,direction,image,simple=True,parent=None,countdown=None):
 		Moveable.__init__(self,pos,image)
-		self.arc=arc
-		self.destructCountDown = destructcount
-		self.full = destructcount
-		if self.arc == True:
-			magnitude = math.sqrt(direction[0]*direction[0]+direction[1]*direction[1])
-			if explodable == True:
-				time = float(self.full)-float(countdown)/2.0
-			else:
-				time = float(self.full)/2.0
-			self.change = float(magnitude)/float(time)
+		self.attributes = {"maxhealth":attribute(25,2,self,200,1),"maxspeed":attribute(3,5,self,40,1)}
+		self.realattributes = {"health":realtime_attribute(0,self,"maxhealth",["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
 		self.parent = parent
 		drawn.add(self)
-		if boomtrigger != False:
-			explosion_triggers.add(self)
-		if damager != False:
-			self.damage = damager
-			damagers.add(self)
 		self.directions = list(direction)
-		self.explodable = explodable
-		self.delay = 0
 		if simple == True:
 			if abs(self.directions[1]) > abs(self.directions[0]):
 				self.image = self.vertical
@@ -452,55 +433,27 @@ class projectile(Moveable):
 			self.image = pygame.transform.rotate(self.vertical,math.degrees(math.atan2(direction[0],direction[1])))
 			self.rect = self.image.get_rect()
 			self.rect.center = pos
+		self.pointer = (0,0)
+		projectiles.add(self)
 	def update(self):
 		self.manage()
-		if self.delay > 0:
-			self.delay -= 1
+		self.secondarypipe("maxhealth","health","all",self)
+		self.secondarypipe("maxspeed","speed","all",self)
+		self.realattributes["health"].__dict__["value"] -= 1
+		self.inertia()
+		self.pointer = (0,0)
+		#print "projectile health:", self.realattributes["health"]
+		if self.realattributes["health"].__dict__["value"] <= 0:
+			#print "health at", self.realattributes["health"], "ending..."
+			return False
 		else:
-			doublebuffer.fill((COLOR),self.rect)
-			#screen.fill((COLOR),self.rect)
-			collisions = pygame.sprite.spritecollide(self, collidable, False)
-			for other in collisions:
-				if other != self:
-					if hasattr(other, "impermeable"):
-						if other.impermeable == True:
-							self.end()
-							return False
-			self.destructCountDown = self.destructCountDown - 1
-			if self.explodable == True:
-				if self.destructCountDown == self.countdown:
-					self.destruct()
-			if self.destructCountDown <= 0:
-				return False
-			else:
-				if self.explodable == True:
-					if self.exploded == False:
-						if self.arc == True:
-							print self.destructCountDown, (self.full-self.countdown)/2
-							if self.destructCountDown > (self.full-self.countdown)/2:
-								self.rect.move_ip(*self.directions)
-								self.directions[0], self.directions[1] = self.adjustmag(self.directions[0], self.directions[1],-1)
-							else:
-								self.rect.move_ip(*self.directions)
-								self.directions[0], self.directions[1] = self.adjustmag(self.directions[0], self.directions[1],1)
-						else:
-							self.rect.move_ip(*self.directions)
-				else:
-					if self.arc == True:
-						if self.destructCountDown > self.full/2:
-							self.rect.move_ip(*self.directions)
-							self.directions[0], self.directions[1] = self.adjustmag(self.directions[0], self.directions[1],-1)
-						else:
-							self.rect.move_ip(*self.directions)
-							self.directions[0], self.directions[1] = self.adjustmag(self.directions[0], self.directions[1],1)
-					else:
-						self.rect.move_ip(*self.directions)
-				return True
+			self.pointer = self.adjustmag(self.directions[0],self.directions[1],self.realattributes["speed"])
+			return True
 	def adjustmag(self,x,y,change):
 		angle = math.atan2(y,x)
-		print "x, y: ", x, y
+		#print "x, y: ", x, y
 		magnitude = math.sqrt(x*x+y*y)
-		print "magnitude: ", magnitude
+		#print "magnitude: ", magnitude
 		if magnitude > 1 and change < 0:
 			magnitude = float(magnitude) + float(change)
 		elif change > 0:
@@ -511,16 +464,13 @@ class projectile(Moveable):
 	def end(self):
 		drawn.remove(self)
 		collidable.remove(self)
-		updated.remove(self)
-		damagers.remove(self)
-		explosion_triggers.remove(self)
 	def pipe(self,attr,realattr,value,dest):
-		print "projectile piping..."
+		#print "projectile piping..."
 		proceed = False
 		if pygame.sprite.collide_rect(self,dest):
 			proceed = True
 		if proceed == False:
-			print "projectile not touching target, pipe rejected\n\n\n\n\n\n\n\n\n\n\n\n"
+			#print "projectile not touching target, pipe rejected\n\n\n\n\n\n\n\n\n\n\n\n"
 			return
 		try:
 			attr2 = attr
@@ -558,143 +508,45 @@ class projectile(Moveable):
 				#print "pipe", attr2, "to", targattr, "done"
 		except KeyError:
 			pass
-
-class explodable():
-	def __init__(self,image,count,damage,triggers=explosion_triggers):
-		self.explodable = True
-		self.exploded = False
-		self.explosion = pygame.image.load(image).convert_alpha()
-		self.countdown = count
-		self.shots = 0
-		self.x = None
-		self.damage = damage
-		self.triggers = triggers
-	def destruct(self):
-		self.x = self.rect.center
-		#screen.fill((COLOR),self.rect)
+	def secondarypipe(self,attr,realattr,value,dest):
+		try:
+			attr2 = attr
+			targattr = realattr
+			attr = self.attributes[attr]
+			realattr = dest.realattributes[realattr]
+			if attr2 in realattr.maxofanames and attr.__dict__["current"] > 0:
+				if value == "all":
+					dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr)
+				elif value == "-all":
+					dest.realattributes[targattr] = realattr.change(dest,attr.__dict__["current"],passkey(),attr)
+				else:
+					dest.realattributes[targattr] = realattr.change(dest,value,passkey(),attr)
+		except KeyError:
+			pass
+	def upgrade(self,attr,value):
+		#print self.realattributes,self.attributes, self.realattributes.values()
+		try:
+			old = self.attributes[attr]
+			#print attr, old
+			self.attributes[attr] += value
+			for realattr in self.realattributes.values():
+				#print realattr, __builtins__.type(realattr), realattr.__dict__.keys(), realattr.__dict__.values()
+				if realattr.maxof == old:
+					realattr.__dict__["value"] = old.__dict__["value"]
+		except KeyError:
+			pass
+	def magnitude(self,factor):
+		return (self.pointer[0]*factor,self.pointer[1]*factor)
+	def magnitude2(self,factor):
+		return (self.directions2[0]*factor,self.directions2[1]*factor)
+	def inertia(self):
 		doublebuffer.fill((COLOR),self.rect)
-		self.image = self.explosion
-		self.rect = self.image.get_rect()
-		self.rect.center = self.x
-		collidable.remove(self)
-		damagers.add(self)
-		self.exploded = True
-	def  maintain(self):
-		if self.exploded == False:
-			collisions = pygame.sprite.spritecollide(self, self.triggers, False)
-			for other in collisions:
-					if other != self:
-							self.destruct()
-		else:
-			if self.countdown > 0:
-				self.countdown = self.countdown - 1
-			if self.countdown == 0:
-				damagers.remove(self)
-				#screen.fill((COLOR),self.rect)
-				doublebuffer.fill((COLOR),self.rect)
-				self.end()
-		return self.exploded
-	def end(self):
-		drawn.remove(self)
-		collidable.remove(self)
-		updated.remove(self)
-		damagers.remove(self)
-		explosion_triggers.remove(self)
-
-class explodable_projectile(projectile):
-	def __init__(self,pos,direction,image,destructcount,boomimage,count,damage,triggers=explosion_triggers,simple=True,parent=None,arc=False):
-		projectile.__init__(self,pos,direction,image,destructcount,simple=simple,parent=parent,arc=arc,explodable=True,countdown=count)
-		self.explodable = True
-		self.exploded = False
-		self.explosion = pygame.image.load(boomimage).convert_alpha()
-		self.countdown = count
-		self.shots = 0
-		self.x = None
-		self.damage = damage
-		self.triggers = triggers
-	def destruct(self):
-		self.x = self.rect.center
-		#screen.fill((COLOR),self.rect)
-		doublebuffer.fill((COLOR),self.rect)
-		self.image = self.explosion
-		self.rect = self.image.get_rect()
-		self.rect.center = self.x
-		collidable.remove(self)
-		projectiles.remove(self)
-		damagers.add(self)
-		self.exploded = True
-	def update(self):
-		if self.exploded == False:
-			collisions = pygame.sprite.spritecollide(self, self.triggers, False)
-			for other in collisions:
-					if other != self:
-							self.destruct()
-		else:
-			if self.countdown > 0:
-				self.countdown = self.countdown - 1
-			if self.countdown == 0:
-				damagers.remove(self)
-				#screen.fill((COLOR),self.rect)
-				doublebuffer.fill((COLOR),self.rect)
-				self.end()
-				return False
-		return projectile.update(self)
-	def end(self):
-		drawn.remove(self)
-		collidable.remove(self)
-		updated.remove(self)
-		damagers.remove(self)
-		explosion_triggers.remove(self)
-
-class explodable_stationary():
-	def __init__(self,pos,imageFileName,collidable,image,count,damage,triggers=explosion_triggers,impermeable=False):
-		Stationary.__init__(self,pos,imageFileName,collidable)
-		self.impermeable = impermeable
-		self.explodable = True
-		self.exploded = False
-		self.explosion = pygame.image.load(image).convert_alpha()
-		self.countdown = count
-		self.shots = 0
-		self.x = None
-		self.damage = damage
-		self.triggers = triggers
-	def destruct(self):
-		self.x = self.rect.center
-		#screen.fill((COLOR),self.rect)
-		doublebuffer.fill((COLOR),self.rect)
-		self.image = self.explosion
-		self.rect = self.image.get_rect()
-		self.rect.center = self.x
-		collidable.remove(self)
-		damagers.add(self)
-		self.exploded = True
-	def maintain(self):
-		if self.exploded == False:
-			collisions = pygame.sprite.spritecollide(self, self.triggers, False)
-			for other in collisions:
-					if other != self:
-							self.destruct()
-		else:
-			if self.countdown > 0:
-				self.countdown = self.countdown - 1
-			if self.countdown == 0:
-				damagers.remove(self)
-				#screen.fill((COLOR),self.rect)
-				doublebuffer.fill((COLOR),self.rect)
-				self.end()
-		return self.exploded
-	def end(self):
-		drawn.remove(self)
-		collidable.remove(self)
-		updated.remove(self)
-		damagers.remove(self)
-		explosion_triggers.remove(self)
+		self.rect.move_ip(*self.pointer)
 
 class barrier(Stationary):
-	def __init__(self,pos,imageFileName,impermeable=False,alphas=False):
-		Stationary.__init__(self,pos,imageFileName,True,alpha=alphas)
+	def __init__(self,pos,imageFileName,alphas):
+		Stationary.__init__(self,pos,imageFileName,True,alphas)
 		barriers.add(self)
-		self.impermeable = impermeable
 
 class character(unit):
 	def __init__(self,pos,image,code,socket):
@@ -705,11 +557,6 @@ class character(unit):
 		self.socket = socket
 		self.name = None
 	def update(self):
-		#print "\n\nnew update"
-		#for item in self.attributes.values():
-		#	print "\t", item, item.current, item.pool
-		#for item in self.realattributes.values():
-		#	print "\t", item
 		event = "EMPTY"
 		while event != None:
 			event = self.socket.recv_data()
@@ -719,22 +566,14 @@ class character(unit):
 					try:
 						function()
 					except Exception, e:
-						print e
 						try:
 							function(self)
 						except Exception, e:
 							print e
 				else:
-					#if len(event) != 1:
-					if True:
-						print "failed event: ", event, "sync is most likely broken"
+					print "failed event: ", event, "is not a valid function of character", self.name
 		self.manage()
 		self.maintain()
-		#print "\n"
-		#for item in self.attributes.values():
-		#	print "\t", item, item.current, item.pool
-		#for item in self.realattributes.values():
-		#	print "\t", item
 	def exit(self):
 		raise SystemExit
 	def aiming(self,vx,vy,vmax=12):
@@ -770,7 +609,7 @@ class character(unit):
 
 class bolt(projectile):
 		def __init__(self,pos,direction,parent):
-			projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
+			projectile.__init__(self,pos,direction,"pulse.png",simple=True,parent=parent)
 		def manage(self):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
@@ -789,7 +628,7 @@ class generic(character):
 		self.pipe("maxregen","health","all",self)
 		self.pipe("firerate","firetime",-2,self)
 		self.pipe("maxspeed","speed","all",self)
-		print self.realattributes["health"]
+		#print self.realattributes["health"]
 		#print self.realattributes["health"]
 	def _w(self,*args):
 		self.goup()
@@ -804,7 +643,7 @@ class generic(character):
 
 class wall(barrier):
 	def __init__(self,pos):
-		barrier.__init__(self,pos,"thewall.png",impermeable=True,alphas=True)
+		barrier.__init__(self,pos,"thewall.png",True)
 
 class fake_dict2(str):
 	def __new__(cls, *args, **kwargs):
@@ -981,7 +820,7 @@ class attribute(int):
 		if hasattr(self,"pool"):
 			if self.__dict__["pool"]+value <= self.__dict__["maximum"] and self.__dict__["pool"]+value >= 0 and self.__dict__["current"] >= value:
 				if self.__dict__["current"] - value >= 0:
-					print self.__dict__["current"], value, self.__dict__["current"] - value
+					#print self.__dict__["current"], value, self.__dict__["current"] - value
 					self.__dict__["current"] = self.__dict__["current"] - value
 					self.__dict__["pool"] += value
 	def withdraw(self,value):
@@ -1119,7 +958,7 @@ class realtime_attribute(int):
 		return dir(self.__dict__["value"])
 	def change(self,other,value,key,maxattr,cost=None,parent=None):
 		#print "real pipe"
-		print "pipe", maxattr.current, value, self
+		#print "pipe", maxattr.current, value, self
 		if isinstance(key,passkey):
 			if cost == None:
 				group = pygame.sprite.RenderUpdates()
@@ -1147,12 +986,12 @@ class realtime_attribute(int):
 		#print "real update"
 		#the issue is, the current attribute pool is withdrawed from and spent before the update function can empty it, meaning it does not account for the flare in a given attribute, and the attribute is permanently increased.
 		if self.__dict__["value"]-self.parent.attributes[self.maxof].__dict__["current"] > 0 or self.name == "health":
-			print "update:", self.__dict__["value"], "to", self.__dict__["value"]-self.parent.attributes[self.maxof].__dict__["rcurrent"]
+			#print "update:", self.__dict__["value"], "to", self.__dict__["value"]-self.parent.attributes[self.maxof].__dict__["rcurrent"]
 			rcurrent = self.parent.attributes[self.maxof].__dict__["rcurrent"]
 			self.parent.attributes[self.maxof].__dict__["rcurrent"] = self.parent.attributes[self.maxof].__dict__["value"]
 			return realtime_attribute(self.__dict__["value"]-rcurrent,self.parent,self.maxof,self.maxofanames,self.name)
 		else:
-			print "update:", self.__dict__["value"], "to 0"
+			#print "update:", self.__dict__["value"], "to 0"
 			return realtime_attribute(0,self.parent,self.maxof,self.maxofanames,self.name)
 
 """
@@ -1189,7 +1028,8 @@ def load_character(name,kind,pos):
 	avatar.name = name
 	if spritename == avatar.name:
 		#print "panning data: ", avatar.constx, avatar.consty, screenpos
-		setscreen((avatar.rect.x-300,avatar.rect.y-300))
+		#setscreen(((avatar.rect.x-((root.winfo_screenwidth()/5.0)*4.0)-25.0)/2.0,avatar.rect.y-(root.winfo_screenheight()-100)/2))
+		setscreen((avatar.rect.x-displaysize[0]/2,avatar.rect.y-displaysize[1]/2))
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
@@ -1216,7 +1056,8 @@ def addcharacters():
 			fore = eventsenders[myname]
 			codesend = codesenders[myname]
 			avatar = all_characters[spritename]
-			setscreen((avatar.rect.x-300,avatar.rect.y-300))
+			#setscreen(((avatar.rect.x-((root.winfo_screenwidth()/5.0)*4.0)-25.0)/2.0,avatar.rect.y-(root.winfo_screenheight()-100)/2))
+			setscreen((avatar.rect.x-displaysize[0]/2,avatar.rect.y-displaysize[1]/2))
 		else:
 			fore = socket(PORT)
 			fore.connect(serverhost)
@@ -1315,7 +1156,7 @@ def movescreen(direction):
 	#optimize this
 	screenpos[0] += direction[0]
 	screenpos[1] += direction[1]
-	print screenpos
+	#print screenpos
 
 def setscreen(direction):
 	#for sprite in everything:
@@ -1327,7 +1168,8 @@ def setscreen(direction):
 	#optimize this
 	screenpos[0] = direction[0]
 	screenpos[1] = direction[1]
-	print screenpos
+	screen.fill(COLOR)
+	#print screenpos
 
 def tkinput(text):
 	global user_input1
@@ -1416,7 +1258,7 @@ def add_others(serverhost):
 	account_adder.send("account_adder")
 	while True:
 		info = account_adder.recv_data(poll=False)
-		print info
+		#print info
 		exec info
 		allsprites = others.values()
 		allsprites.append(default)
@@ -1431,20 +1273,22 @@ def add_others(serverhost):
 
 root = tk.Tk()
 root.wm_title("OpenBox")
-embed = tk.Frame(root, width = ((root.winfo_screenwidth()/5)*4)-25, height = root.winfo_screenheight()-100)
-embed.grid(columnspan = (600), rowspan = 600)
+displaysize = (((root.winfo_screenwidth()/5)*4)-25, root.winfo_screenheight()-100)
+embed = tk.Frame(root, width = displaysize[0], height = displaysize[1])
+embed.grid(columnspan = displaysize[0], rowspan = displaysize[1])
 embed.pack(side=LEFT)
 tkwin = tk.Frame(root, width = (root.winfo_screenwidth()/5)-25, height = root.winfo_screenheight()-100)
 tkwin.pack(side=RIGHT)
 os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
 if sys.platform == "win32":
 	os.environ['SDL_VIDEODRIVER'] = 'windib'
+
 if len(sys.argv) > 1:
 	if sys.argv[1] == "-f":
 		root.attributes("-fullscreen", True)
 
 pygame.init()
-screen = pygame.display.set_mode((root.winfo_screenwidth()-300, root.winfo_screenheight()-100))
+screen = pygame.display.set_mode((displaysize[0], displaysize[1]))
 doublebuffer = pygame.Surface((4500,4500))
 
 class background(Stationary):
@@ -1553,9 +1397,9 @@ class globe():
 					load_code(loading[1],loading[3],loading[2])
 					loading = [False,None,None,None]
 				elif command[:15] == "load character ":
-					print command, user_info
+					#print command, user_info
 					if command.split()[2] in user_info[command.split()[3]][1].keys():
-						print user_info[command.split()[3]]
+						#print user_info[command.split()[3]]
 						#load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100-(screenpos[0]-300),100-(screenpos[1]-300)))
 						load_character(command.split()[2],user_info[command.split()[3]][1][command.split()[2]],(100,100))
 					else:
@@ -1563,6 +1407,16 @@ class globe():
 						load_character(command.split()[2],user_info[command.split()[3]][0],(100,100))
 		time.sleep(SPEED)
 		for item in units:
+			#print item.realattributes
+			for attr in item.attributes.values():
+				attr.update()
+			for attr in item.realattributes.keys():
+				#item.realattributes.remove(attr)
+				#item.realattributes[attr] = attr.update()
+				item.realattributes.update({attr:item.realattributes[attr].update()})
+			#for attr in item.attributes.values():
+			#	attr.update()
+		for item in projectiles:
 			#print item.realattributes
 			for attr in item.attributes.values():
 				attr.update()
@@ -1617,9 +1471,9 @@ start()
 Todo:
 
 Make the main loop and similar things more organized. More modularized functions.
-Make event gathering box have name of currently focused sprite.
-Give projectiles a health. They can be blocked in this way. They should, perhaps, also have speed. This also permits one to pipe low speed towards them.
+Make a sidebar with all your units listed, and the one in focus highlighted.
 
+unimplemented attributes
 -spacial impact (apply stronger collisions to you and projectiles, less stagger/knockback from collisions, make other objects move towards or away from self)
 -energy (Use to support scripts. Basically, the intermediate scripting which has some built in principals, like weather manipulation, can be increased with this. More advanced scripts will not use it...)
 -creation (used to spawn new objects, AI units, and even map slices)
@@ -1627,11 +1481,14 @@ Give projectiles a health. They can be blocked in this way. They should, perhaps
 
 note- items can inherit from projectiles as well as units, hence multiple influence
 
-1. upgrade explodables to conformity
-2. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation, and some locked classes for more advanced unit archetypes), also implement items
+1. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation (basically higher level functions that have more specialized, easier to acheive and impressive features), and some locked classes for more advanced unit archetypes), also implement items
+2. optimize it
 3. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking position, tracking currency, and tracking items
 4. Add pre-exec string checker to ban things
 5. Add "key" locks onto the infastructure
 6. Write documentation in full, including the secret docs
 7. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
+8. Create legitimate security features
+
+trick unit into taking item or modify upon defeating them
 """
