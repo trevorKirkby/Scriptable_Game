@@ -31,7 +31,7 @@ class prototype(character):
 		#self.rect.move_ip(200,0)
 		class bigbolt(projectile):
 			def __init__(self,pos,direction,parent):
-				projectile.__init__(self,pos,direction,"pulse.png",30,damager=False,boomtrigger=False,simple=True,parent=parent)
+				projectile.__init__(self,pos,direction,"pulse.png",simple=True,parent=parent)
 				pos = self.rect.center
 				self.right = images["gun.png"]
 				self.left = pygame.transform.flip(self.right,True,False)
