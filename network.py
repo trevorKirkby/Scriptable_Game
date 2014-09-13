@@ -108,7 +108,12 @@ class socket():
 	def send_img(self,filename,timeout=None):
 		pygame.display.init()
 		if type(filename) == str:
-			image_file = pygame.image.load(filename).convert_alpha()
+			try:
+				image_file = pygame.image.load(filename).convert_alpha()
+			except:
+				pygame.display.set_mode((200,100))
+				image_file = pygame.image.load(filename).convert_alpha()
+				pygame.display.quit()
 		elif type(filename) == dict:
 			image_file = list(filename.values())[0]
 			filename = list(filename.keys())[0]
@@ -161,6 +166,7 @@ class socket():
 			self.send_data(data_file.read())
 		data_file.close()
 	def recv_file(self,timeout=None):
+		filename = None
 		self.send_data("receive file")
 		acknowledgement = None
 		while acknowledgement == None:
@@ -175,6 +181,7 @@ class socket():
 			data_file.close()
 		except:
 			pass
+		return filename
 	def send_pyobj(self,obj):
 		acknowledgement = None
 		while acknowledgement == None:

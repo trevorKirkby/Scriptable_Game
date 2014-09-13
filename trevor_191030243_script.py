@@ -17,6 +17,7 @@ class prototype(character):
 		self.pipe("maxhealth","health","all",self)
 		self.upgrade("maxspeed",1)
 		self.upgrade("maxspeed",1)
+		self.upgrade("maxspeed",1)
 		#pos = self.rect.center
 		#self.right = images["wolf.png"]
 		#self.left = pygame.transform.flip(self.right,True,False)
@@ -31,7 +32,7 @@ class prototype(character):
 		#self.rect.move_ip(200,0)
 		class bigbolt(projectile):
 			def __init__(self,pos,direction,parent):
-				projectile.__init__(self,pos,direction,"pulse.png",simple=True,parent=parent)
+				projectile.__init__(self,pos,direction,"pulse.png",simple=False,parent=parent)
 				pos = self.rect.center
 				self.right = images["gun.png"]
 				self.left = pygame.transform.flip(self.right,True,False)
@@ -45,9 +46,30 @@ class prototype(character):
 				collisions = pygame.sprite.spritecollide(self, collidable, False)
 				for other in collisions:
 					if other != self and other != self.parent and isinstance(other,unit):
-						self.parent.withdraw("maxdmg",15)
-						self.pipe("maxdmg","health",-5,other)
-						self.pipe("maxdmg","health",-5,other)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.parent.withdraw("maxdmg",99)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
+						self.pipe("maxdmg","health",-99,other)
 		self.shot = bigbolt
 		self.indexes = 0.0
 	def manage(self):
@@ -59,7 +81,7 @@ class prototype(character):
 		for projectile in self.projectiles:
 			if projectile != None:
 				return
-		self.store("maxdmg",7)
+		self.store("maxdmg",99)
 		#print self.realattributes["health"]
 	def animate_move(self,dx,dy):
 		if dx != 0:
@@ -83,12 +105,18 @@ class prototype(character):
 	def _d(self,*args):
 		self.goright()
 	def _e(self,*args):
-		self.shoot(self.shot)
+		x = self.aim[0]
+		y = self.aim[1]
+		angle = math.degrees(math.atan2(y,x))
+		angle = math.radians(angle)
+		self.aim[0] = math.cos(angle)*12
+		self.aim[1] = math.sin(angle)*12
+		self.aimshoot(self.shot,self.aim)
 	def _q(self,*args):
 		collisions = pygame.sprite.spritecollide(self, collidable, False)
 		for other in collisions:
 			if other != self and isinstance(other,unit):
-				self.pipe("maxdamage","health",-3,other)
+				self.pipe("maxdmg","health",-140,other)
 	def _i(self,*args):
 		self.store("maxregen",1)
 	def _k(self,*args):
@@ -96,11 +124,19 @@ class prototype(character):
 	def _u(self,*args):
 		self.store("maxspeed",2)
 	def _j(self,*args):
-		self.withdraw("maxspeed",2)
-	def _y(self,*args):
-		self.store("firerate",1)
+		self.withdraw("maxspeed",4)
+	def _t(self,*args):
+		self.aimup()
+	def _g(self,*args):
+		self.aimdown()
+	def _f(self,*args):
+		self.aimleft()
 	def _h(self,*args):
-		self.withdraw("firerate",10)
+		self.aimright()
+
+class suicideking(character):
+	def __init__(self,sockets,pos):
+		pass
 
 default=generic
 others={"prototype":prototype}

@@ -1,10 +1,18 @@
 #!/usr/bin/env python
 
-import pygame, time, math, random, sys, socket, threading, select
+import pygame
+import time
+import math
+import random
+import sys
+import socket
+import threading
+import select
 from network import *
 from Tkinter import *
 import Tkinter as tk
 import _tkinter
+import struct
 
 #def import_block(*args):
 #	return time
@@ -294,7 +302,7 @@ class unit(Moveable):
 		updated.add(self)
 		units.append(self)
 		self.inventory = []
-		self.attributes = {"maxhealth":attribute(500,2,self,100,1),"maxspeed":attribute(2,25,self,40,1),"maxregen":attribute(1,50,self,50,1),"maxdmg":attribute(15,18,self,200,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(2,20,self,50,1)}
+		self.attributes = {"maxhealth":attribute(2000,1,self,10000,1),"maxspeed":attribute(1,50,self,100,1),"maxregen":attribute(1,100,self,50,1),"maxdmg":attribute(300,2,self,2000,1),"maxprojectiles":attribute(3,18,self,0,0),"firerate":attribute(2,20,self,50,1)}
 		self.realattributes = {"health":realtime_attribute(0,self,"maxhealth",["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
 		self.projectiles = []
 		self.firetime = 100
@@ -304,30 +312,32 @@ class unit(Moveable):
 			load_code(self,code,"_start")
 			self._start()
 		self.directions2 = (0,0)
+		self.anchored = False
+		self.tissue = []
 	def maintain(self):
-		if not hasattr(self,"anchored"):
+		if not self.anchored:
 			self.inertia()
-		self.directions = (0,0)
-		index = 0
-		for projectile in self.projectiles:
-			if projectile != None:
-				if projectile.update() == False:
-					projectile.end()
-					self.projectiles[index] = None
-			index += 1
+			self.directions = (0,0)
+			index = 0
+			for projectile in self.projectiles:
+				if projectile != None:
+					if projectile.update() == False:
+						projectile.end()
+						self.projectiles[index] = None
+				index += 1
+			for attributething in self.attributes.values():
+				if not isinstance(attributething,attribute):
+					#print attributething, "caused character annihilation"
+					#print __builtins__.type(attributething)
+					self.end()
+			for attributething in self.realattributes.values():
+				if not isinstance(attributething,realtime_attribute):
+					#print attributething, "caused character annihilation"
+					#print __builtins__.type(attributething)
+					self.end()
 		if self.realattributes["health"] <= 0:
 			print "health at", self.realattributes["health"], "ending..."
 			self.end()
-		for attributething in self.attributes.values():
-			if not isinstance(attributething,attribute):
-				#print attributething, "caused character annihilation"
-				#print __builtins__.type(attributething)
-				self.end()
-		for attributething in self.realattributes.values():
-			if not isinstance(attributething,realtime_attribute):
-				#print attributething, "caused character annihilation"
-				#print __builtins__.type(attributething)
-				self.end()
 	def project(self,bolt,speed=6,direction=None,target=None,accuracy=None,aimed=False):
 		#print self.firetime
 		if self.firetime > 0:
@@ -491,17 +501,20 @@ class unit(Moveable):
 			raise RuntimeError
 		self.rect = image.get_rect()
 		self.rect.center = pos
-	def convoy(self):
-		pass
-	def acceptconvoy(self):
-		pass
+	#def convoy(self):
+	#	pass
+	#def acceptconvoy(self):
+	#	pass
 	def onend(self):
 		pass #drops item of unit, for example in the case of a tree, wood.
+	def add_tissue(self,tissue):
+		self.tissue.append(tissue)
+		#here is where it ought to update the central graphics bit, overlaying it onto the rest of it...
 
 class projectile(Moveable):
 	def __init__(self,pos,direction,image,simple=True,parent=None,countdown=None):
 		Moveable.__init__(self,pos,image)
-		self.attributes = {"maxhealth":attribute(25,2,self,200,1),"maxspeed":attribute(3,5,self,40,1)}
+		self.attributes = {"maxhealth":attribute(25,2,self,200,1),"maxspeed":attribute(10,5,self,40,1)}
 		self.realattributes = {"health":realtime_attribute(0,self,"maxhealth",["maxhealth","maxregen","maxdmg"],"health"),"speed":realtime_attribute(2,self,"maxspeed",["maxspeed","maxhealth"],"speed")}
 		self.parent = parent
 		drawn.add(self)
@@ -530,7 +543,7 @@ class projectile(Moveable):
 			#print "health at", self.realattributes["health"], "ending..."
 			return False
 		else:
-			self.pointer = self.adjustmag(self.directions[0],self.directions[1],self.realattributes["speed"])
+			self.pointer = self.setmag(self.directions[0],self.directions[1],self.realattributes["speed"])
 			return True
 	def adjustmag(self,x,y,change):
 		angle = math.atan2(y,x)
@@ -544,8 +557,15 @@ class projectile(Moveable):
 		nx = math.cos(angle)*float(magnitude)
 		ny = math.sin(angle)*float(magnitude)
 		return nx, ny
+	def setmag(self,x,y,change):
+		angle = math.atan2(y,x)
+		#print "x, y: ", x, y
+		#print "magnitude: ", magnitude
+		nx = math.cos(angle)*float(change)
+		ny = math.sin(angle)*float(change)
+		return nx, ny
 	def end(self):
-		fill(self.rect)
+		fill(self.rect,self)
 		drawn.remove(self)
 		collidable.remove(self)
 		projectiles.remove(self)
@@ -690,7 +710,7 @@ class barrier(Stationary):
 	def __init__(self,pos,imageFileName,alphas):
 		Stationary.__init__(self,pos,imageFileName,True,alphas)
 
-class character(unit):
+class character(unit):   #Technically all this is the central tissue object... It has its own manage function. However the number of function calls on this will obviously be limitted and all that. And this holds all the sub-parts.
 	def __init__(self,pos,image,code,socket):
 		unit.__init__(self,pos,image,code)
 		self.directions = (1,0)
@@ -709,12 +729,18 @@ class character(unit):
 						function()
 					except Exception, e:
 						try:
+						#if True:
 							function(self)
 						except Exception, e:
 							print e
 				else:
 					print "failed event: ", event, "is not a valid function of character", self.name
 		self.manage()
+		for component in self.tissue:
+			if isinstance(component,piece):
+				component.manage(self)
+			else:
+				print "Error... A non-tissue object is stored in "+self.name+"'s tissue list."
 		self.maintain()
 	def exit(self):
 		raise SystemExit
@@ -750,39 +776,59 @@ class character(unit):
 		self.aiming2(3)
 
 class tree(unit):
-	def __init__(self,pos,snowy):
-		self.snow = snowy
-		unit.__init__(self,pos,self.maketree(),str())
+	def __init__(self,pos,dna):
+		self.dna = dna   #[(trunk rgb), (leaf rgb 1), (leaf rgb 2),angle variability,angle change]   [(120,200,70),(100,180,70),(100,150,100),50,20]
 		self.directions = (1,0)
 		self.aim = [12,0]
 		self.aim2 = [12,0]
 		self.socket = None
 		self.name = None
+		unit.__init__(self,pos,self.maketree(),str())
 		self.anchored = True
+		del self.attributes["maxspeed"]
+		del self.attributes["maxdmg"]
+		del self.attributes["maxregen"]
+		del self.attributes["maxprojectiles"]
+		del self.attributes["firerate"]
+		del self.realattributes["speed"]
 		self.pipe("maxhealth","health","all",self)
 	def drawtree(self,x1, y1, angle, depth,picture):
 		if depth:
-			angle += random.randrange(-50+depth*7,50-depth*7)
+			#random.seed(self.dna[5][0])
+			angle += random.randrange(-self.dna[3]+depth*7,self.dna[3]-depth*7)
 			x2 = x1 + int(math.cos(math.radians(angle)) * depth * 3.0)
 			y2 = y1 + int(math.sin(math.radians(angle)) * depth * 3.0)
-			if self.snow == True:
-				pygame.draw.line(picture, (120,120,100), (x1, y1), (x2, y2), depth)
-			else:
-				pygame.draw.line(picture, (150,200-depth*20,70), (x1, y1), (x2, y2), depth)
-			self.drawtree(x2, y2, angle-20, depth-1, picture)
-			self.drawtree(x2, y2, angle+20, depth-1, picture)
+			pygame.draw.line(picture, (self.dna[0][0],self.dna[0][1]-depth*20,self.dna[0][2]), (x1, y1), (x2, y2), depth)
+			self.drawtree(x2, y2, angle-self.dna[4], depth-1, picture)
+			self.drawtree(x2, y2, angle+self.dna[4], depth-1, picture)
 		else:
-			x1 += random.randrange(-6,7)
-			y1 += random.randrange(-6,7)
-			shape = []
-			for point in range(5):
-				shape.append((x1+random.randrange(-4,5),y1+random.randrange(-4,5)))
-			if self.snow == True:
-				pygame.draw.polygon(picture, (200+random.randrange(-20,20),200+random.randrange(-20,20),220+random.randrange(-20,20)), shape)
-				pygame.draw.polygon(picture, (200+random.randrange(-20,20),200+random.randrange(-20,20),220+random.randrange(-20,20)), shape,1)
-			else:
-				pygame.draw.polygon(picture, (100+random.randrange(-20,20),180+random.randrange(-20,20),70+random.randrange(-20,20)), shape)
-				pygame.draw.polygon(picture, (100+random.randrange(-20,20),150+random.randrange(-20,20),100+random.randrange(-20,20)), shape,1)
+			#for thing in range(20):
+			if True:
+				##random.seed(self.dna[5][1])
+				x1 += random.randrange(-6,7)
+				##random.seed(self.dna[5][2])
+				y1 += random.randrange(-6,7)
+				shape = []
+				for point in range(5):
+					##random.seed(self.dna[5][3])
+					x3 = x1+random.randrange(-4,5)
+					##random.seed(self.dna[5][4])
+					y3 = y1+random.randrange(-4,5)
+					shape.append((x3,y3))
+				##random.seed(self.dna[5][5])
+				color1 = self.dna[1][0]+random.randrange(-20,20)
+				##random.seed(self.dna[5][6])
+				color2 = self.dna[1][1]+random.randrange(-20,20)
+				##random.seed(self.dna[5][7])
+				color3 = self.dna[1][2]+random.randrange(-20,20)
+				##random.seed(self.dna[5][8])
+				color4 = self.dna[2][0]+random.randrange(-20,20)
+				##random.seed(self.dna[5][9])
+				color5 = self.dna[2][1]+random.randrange(-20,20)
+				##random.seed(self.dna[5][10])
+				color6 = self.dna[2][2]+random.randrange(-20,20)
+				pygame.draw.polygon(picture, (color1,color2,color3), shape)
+				pygame.draw.polygon(picture, (color4,color5,color6), shape,1)
 	def maketree(self):
 		img = pygame.Surface((80,80))
 		img.fill((255,255,255))
@@ -800,7 +846,7 @@ class bolt(projectile):
 			collisions = pygame.sprite.spritecollide(self, collidable, False)
 			for other in collisions:
 				if other != self and other != self.parent and isinstance(other,unit):
-					self.pipe("maxdamage","health",-4,other)
+					self.pipe("maxdmg","health",-99,other)
 
 class generic(character):
 	def __init__(self,sockets,pos):
@@ -1219,7 +1265,11 @@ def load_character(name,kind,pos):
 	if isinstance(avatar,character):
 		all_characters.update({name:avatar})
 	else:
-		print "rejected fraudulent character"
+		if isinstance(avatar,tree):
+			all_characters.update({name:avatar})
+		else:
+			print "rejected fraudulent character"
+	doublebuffer.blit(avatar.image,avatar.rect.topleft)
 	return avatar
 
 def load_code(character,newfunct,name):
@@ -1284,7 +1334,7 @@ def sendcode():
 			source += (line)
 		codesend.send_data(source)
 
-def start(serverhost):
+def recvimages(serverhost):
 	imgnet = socket(1337)
 	imgnet.connect(serverhost)
 	imgnet.send("imagereceiver")
@@ -1553,9 +1603,6 @@ mythread1.start()
 mythread1 = threading.Thread(target = sendimages)
 mythread1.start()
 
-mythread = threading.Thread(target=start,args=[serverhost])
-mythread.start()
-
 mythread = threading.Thread(target=add_others,args=[serverhost])
 mythread.start()
 
@@ -1566,7 +1613,6 @@ def fill(rect,sprite=None):
 		collisions = pygame.sprite.spritecollide(sprite, collidable, False)
 		for other in collisions:
 			if other != sprite and other in drawn:
-				#tofill = rect.clip(other.rect)
 				tofill = other.rect
 				doublebuffer.blit(other.image,tofill.topleft)
 	pygame.display.update(rect)
@@ -1659,61 +1705,88 @@ def start():
 		game.run()
 		root.update()
 
-wall((400,400))
-wall((300,400))
-wall((400,300))
-wall((300,300))
-
-for count in range(300):
-	tree((random.randrange(50,4450),random.randrange(50,4450)),False)
-
-tree((500,500),True)
-
 default_new = generic
 
+#for thing in range(100):
+#	tree((random.randrange(50,1200),random.randrange(3200,4450)),[(120,200,70),(100,150,100),(80,180,70),52,20])
+
+#for thing in range(70):
+#	tree((random.randrange(3500,4450),random.randrange(2000,4450)),[(120,180,100),(200,200,200),(180,180,200),52,20])
+
+#for thing in range(12):
+#	tree((random.randrange(50,900),random.randrange(50,1800)),[(100,200,70),(70,180,100),(100,190,100),56,20])
+
+tree((270,220),[(100,200,70),(70,180,100),(100,190,100),56,20])
+tree((300,50),[(100,200,70),(70,180,100),(100,190,100),56,20])
+tree((110,460),[(100,200,70),(70,180,100),(100,190,100),56,20])
+tree((500,600),[(100,200,70),(70,180,100),(100,190,100),56,20])
+tree((700,1100),[(100,200,70),(70,180,100),(100,190,100),56,20])
+
+doublebuffer.fill((COLOR))
+screen.blit(doublebuffer,(-screenpos[0],-screenpos[1]))
+pygame.font.init()
+myfont = pygame.font.SysFont("monospace", 15)
+label = myfont.render("Please Wait...", 1, (0,0,0))
+screen.blit(label, (displaysize[0]/2, displaysize[1]/2))
+pygame.display.flip()
+mythread = threading.Thread(target=recvimages,args=[serverhost])
+mythread.start()
 time.sleep(3)
 server_conn.send_data("ready")
 start()
 
 """
-Todo:
+random fine tunings:
+----------------------
 
-make sprites that are "above" others to appear behind
-
-chat- any player can open up a chat from player to player, or shout a message that appears to everyone. However shouting only works once every five seconds.
-
-Water can only be passed through if the unit's weight is under a certain threshold. Otherwise it exerts quadraticly multiplying force against the unit's speed and health if he tries to pass through. Even lighter units that float get a flat percentage of lost speed in water. A good trick though, is a convoy. Rather than making a light unit to fight, put a heavy unit on board a lighter boat. Units of the same player can convoy.
-
-Make a play without an account option. This makes people resent logging in less, because it tangibly makes it apparent that you only get access to your stuff if you identify yourself.
-Make other interesting map zones... Like, perhaps, an underworld.
-Make the main loop and similar things more organized. More modularized functions.
-Make a sidebar with all your units listed, and the one in focus highlighted.
-
-spawn points: Players don't get there own map slices to start out in, persay. However, they are always placed in the grassy feild, where fighting is actually not permitted (and few good resources are available). This place is only useful for starting out or forming alliances, but because everyone starts out here it is kind of expected to end up as a city as people build stuff and they don't get destroyed. The player GAIA actually already has one or two builders there, though all they do is make tents and campfires. Some of the random map events dictate that GAIA actually send a guy who trades attribute stockpiles there.
-
-Weather is actually an overlay of data that air projectiles manipulate. Certain patterns in this data cause things like thunderstorms.
+-make sprites that are "above" others to appear behind
+-chat- any player can open up a chat from player to player, or shout a message that appears to everyone. However shouting only works once every five seconds.
+-Water can only be passed through if the unit's weight is under a certain threshold. Otherwise it exerts quadraticly multiplying force against the unit's speed and health if he tries to pass through. Even lighter units that float get a flat percentage of lost speed in water.
+-Make a play without an account option. This makes people resent logging in less, because it tangibly makes it apparent that you only get access to your stuff if you identify yourself.
+-Make other interesting map zones... Like, perhaps, an underworld.
+-Make the main loop and similar things more organized. More modularized functions.
+-Make a sidebar with all your units listed, and the one in focus highlighted.
+-spawn points: Players don't get there own map slices to start out in, persay. However, they are always placed in the grassy feild, where fighting is actually not permitted (and few good resources are available). This place is only useful for starting out or forming alliances, but because everyone starts out here it is kind of expected to end up as a city as people build stuff and they don't get destroyed. The player GAIA actually already has one or two builders there, though all they do is make tents and campfires. Some of the random map events dictate that GAIA actually send a guy who trades attribute stockpiles there. Damage piping will not work on a target inside these boundaries.
+-Make a virtual environment installer... If you can. Otherwise you may need to use some other kind of high performance security system...
+-Note: Build map dynamically... Keep a code base of anything someone uploads, in part for security but also so that it is easy to upload it as one of the things to place on the map.
 
 unimplemented attributes
 -creation (Used to spawn new objects, AI units, and even map slices if there is free space in the designated player-made map slice region)
--visual (Allows changing images, animated motion costs some but less... This attribute almost always requires storage to utilize at all, except in the case of animation)
--weight- right now when one moveable collidable pushes another the speed is always reduced to one. This, and general speed and momentum, should be mass dependant. Weight can also, with extreme expenditure, draw objects closer to self. This can effectively control much of a unit's motion when compounded with speed. It actually costs a stored maxattr to change it, but it doesn't empty out or refill via updating. It costs charged up attribute pools to effectively lower weight, not just raise it.
--thermal resistance (damage filter on heat, flammability)
--electric conductivity (damage filter on electricity, how readily current is transferred. Both insulators and conductors are more resistant to damage than the default, which is in the middle)
+-weight- right now when one moveable collidable pushes another the speed is always reduced to one. This, and general speed and momentum, should be mass dependant. Weight can also, with extreme expenditure, draw objects closer to self. This can effectively control much of a unit's motion when compounded with speed. It actually costs a stored maxattr to change it, but it doesn't empty out or refill via updating. It costs charged up attribute pools to effectively lower weight, not just raise it. Weight will reduce speed, however it also makes you a lot less likely to get knocked far back in a collision.
+-hud_overlay (for blindness, flashed, and hallucinations)
+-toxic- toxic. straightfoward eneough.
+-brute- will cause bloodloss in large amounts
+-burn- burn. straightfoward eneough.
+-genetic- radiation issues. causes toxification alongside its own damage
+-upkeep- food, starvation, etc
+-bloodloss- compunds to cause more brute and some asphyxiation, but mostly its own damage type
+-asphyxiation- air is everywhere, however it is still a damage type so that suffocation can occur
+-temperature- extreme temperatures bring about burn damage, and lesser extremes slow down player unless negated which will cost upkeep or some other stat.
+-Players have an internal organ setup, their sprite is the combination of said organ's appearance assembled. Each organ has a damage price for being damaged (AKA lungs give global asphyxiation when they have brute), and a set of functions tied to them. The brain can theoretically be designed so that the body can function autonomously from it, so long as you place the actual connection attribute (which you may only have one instance of in a player) is stored somewhere else, as this actually calls functions. Said organs have these damage multipliers because each one is tied to a maximum of three piping functions, thus if they are damaged that kind of piping is damaged. So yes, you could propell yourself with your nose instead of legs. Organs must also have animations for different directions and different damage levels. Thus creating a player from scratch isn't easy but totally doable. And relatively simple.
+-Items are actually similar to said organs. They don't obviously classify the same way, but they dynamically can attatch and detatch from a player, house attributes, functions, and passive functions, and integrate into the player's sprite in the same way.
+-There are, however, many non-player, non-objects. Like trees. These are stationaries, that have only basic health attributes (they are immune to all damage types but brute and burn). They use less CPU. Many stationaries also have on-death functions. For example, trees drop wood, an item that is potentially useful as it has a function to withdraw a temeperature reserve into nearby objects and change sprite to fire (which has unique scripting to spread to other objects made of wood), and also may have several kinds of permanent item-type attributes applied to them during runtime, such as attack, which equates sharpening the wood. Finally it can be used in a stationary to contribute its item stats and a plank-like sprite to the object (or start an entirely new stationary). However, the location and angle of said plank has to be coded in. Theoretically you could build a function to make planks into a fence though, for example. The plank would simply have to visually attatch to the sprite it is modifying, and if so than it will redefine said stationary's borders, breaking it off into two or more stationaries as nescessary, not breaking up scripted in L shaped images if they have the DONTBREAK flag active. Finally, obviously you can't make one stationary extend into the space of another very much at all, something like five pixels maximum. The idea of assembling raw attributes and icons can be very powerful, I think.
+-Organs may be targeted, again in script, but with the exception of one's own sprite they can only target exposed organs. However ones underneath still take damage, and all organs detatch at a percent of damage threshhold. Obviously your primarily screwed if the residence of your connection dies. Hence it makes sense to give yourself a nice armor plating. However, since all organs require sustenance and said armor is not contributing anything, it may be a helpful in combat but it will provide a serious upkeep drain so be careful...
 
-Make screen sustain multiple doublebuffers, so that there can be paralell maps that must be teleported to via anomaly portals (which utilize a different function than inertia and Moveable.move). This also allows modular attatchment of new territory.
-Make a virtual environment installer... If you can. Otherwise you may need to use some other kind of high performance security system...
-note- items can inherit from projectiles as well as units, hence multiple influence
+note: high level issues like confusedness, nerve damage, hallucinations, and necrosis are dealt with via an effect, these are just base damage types. Even paralysis can just be reduced to speed.
+-So damage and heal dont pipe into health... They pipe into damage buffers, which pipe into health. Damage buffers will apply secondary effects of specialized damage types, and also must be healed differently. If something like 10 toxic is present, it will keep piping -10 to health until it is reduced to zero. It can not go below zero. Regen still pipes into health, there still is a raw, general life force variable. Its just that damage and healing has to pipe through damage specific buffers, and must be reduced by damage specific de-buffers.
+-Also most objects can be used as effects. This means they independantly pipe themselves. Hence poisons and healing agents, things that you can't control. This type of passive use cannot execute code beyond attribute pipes, but may be imposed on an enemy, whereas someone generally has to choose to activate an object. Essentially, most objects support either active (user takes object and manually uses it) and/or passive (user or other player forces user to take it and passive use executes).
+-Finally, it is to be noted that new organs cannot theoretically be created ingame. Note the theoretically bit. You can have a bunch of dormant organs to let you regrow em. Just need some raw stats to back the organs up. Also there is an organ cap at 70. And a function cap of 70 per organ. And of coarse the pipe cap. This means you can't get too out of hand... If you work hard eneough to make 70 complex functions per 70 organs you deserve it.
 
-0. Get boxes unpacked from summer.
-1. Add expanded infastructure (this means some builtin rules to facilitate easy basic script creation (basically higher level functions that have more specialized, easier to acheive and impressive features), and some locked classes for more advanced unit archetypes), also implement items
-2. Implement listed new attributes
-3. create the map with things like weather and sudden, random cataclysms. Also create a system for earning currency. Build GAIA player that generates resources and wild opponents in the map.
-4. Add a disengaging protocol for when a character leaves, the server should be able to tie up loose ends if the client process is killed. This means tracking units, tracking currency, and tracking items.
-5. Add pre-exec string checker to ban things
-6. Add "key" locks onto the infastructure
-7. Write documentation in full, including the secret docs
-8. Design an actually bomb-proof, easy to install and use package for users. This includes multiplatform and actually closable programs. This also means pyinstaller for windows, and a py2app on mac that installs python interpreter and sets up the program, and also a linux zipfile with an sh file that apt-gets python than installs
-9. Create legitimate security features
 
+
+TODO
+-------------
+1. Implement full set of new attributes.
+2. Add a disengaging protocol for when a character leaves. This means storing the character exactly as it is, and reloading. Character can be killed and reinstantiated if desired. Also try for making an engaging protocol where characters will attempt to find an unoccupied location in the grass field to spawn.
+3. Add fairness gaurd pre-exec string checker to ban the use of certain keywords and functions.
+4. Add "key" locks onto some of the better premade feautures.
+5. Make a "map" or at least a generator. Also create a randomizer to make random weather patterns. If this is the only randomized thing one could always control weather by controlling the random seed... Could be interesting.
+6. Write documentation in full, and write the secret docs.
+7. Make a multiplatform, one file program that actually closes when you click the X button.
+8. Create legitimate security features using the pre-exec string checker. This is far from bombproof, however, frankly it doesn't really need to be.
+
+
+usage notes
+----------------
 trick unit into taking item or modify upon defeating them and revive or reverse engineer AI so that when not being directly controlld by player actions are manipulable, or sequester enemy controls to controlling a unit imprisoned in own mind or unable to interact with environment, while selectively allowing some controls supplied by them through. Won't work for very long. You can also spread to other units via convoy, even persuade units to convoy themselves upon what they think is an allied unit then modifying them while they are helplessly stored away.
 """

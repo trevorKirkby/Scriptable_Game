@@ -54,7 +54,7 @@ def manage_img(sender):
 		img = sender.recv_img()
 		for receiver in img_recv:
 			receiver.send_img(img)
-			img_data.update(img)
+		img_data.update(img)
 
 def handle_account(connection):
 	register = connection.recv_data(poll=False)
@@ -97,6 +97,8 @@ def manage_adder(connection):
 			if player not in done:
 				connection.send(player)
 				done.append(player)
+
+print get_lan_ip()
 
 try:
 	while True:
@@ -143,8 +145,8 @@ try:
 			mythread.start()
 		elif connection_type == "imagereceiver":
 			img_recv.append(connection)
-			for image in img_data:
-				connection.send_img(image)
+			for image in img_data.keys():
+				connection.send_img({image:img_data[image]})
 		if connection_type == "sender" or connection_type == "character":
 			for character in characters:
 				for sender in senders:
