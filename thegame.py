@@ -509,7 +509,32 @@ class unit(Moveable):
 		pass #drops item of unit, for example in the case of a tree, wood.
 	def add_tissue(self,tissue):
 		self.tissue.append(tissue)
-		#here is where it ought to update the central graphics bit, overlaying it onto the rest of it...
+		self.right.blit(tissue.image,(self.rect.topleft[0]-tissue.x,self.rect.topleft[1]-tissue.y))
+		self.image = self.right
+		self.left = pygame.transform.flip(self.image,True,False)
+		self.vertical = pygame.transform.rotate(self.image,90)
+		if self.direction == "right":
+			self.image = self.right
+		elif self.direction == "left":
+			self.image = self.left
+		imgindex = 0
+		for image in self.motion:
+			if hasattr(tissue,"motion"):
+				if len(tissue.motion) == len(self.motion):
+					image.blit(tissue.motion[imgindex],(self.rect.topleft[0]-tissue.x,self.rect.topleft[1]-tissue.y))
+				else:
+					print "ERROR: Tissue animations noncompatible with base unit."
+			imgindex += 1
+
+class tissue():
+	def __init__(self,image,x,y,motion):
+		self.image = image
+		self.x = x
+		self.y = y
+		self.motion = motion
+		#needs realtime health attributes... As of now the thing that most needs setting up is damage systems reform. Then things will mostly be underway and good. Damage related piping has to specify a pixel value and then we will see what organs get hit by it... This will mean being able to reconstruct what organs have non-transparent pixels there.
+	def manage(self):
+		pass
 
 class projectile(Moveable):
 	def __init__(self,pos,direction,image,simple=True,parent=None,countdown=None):
@@ -1739,6 +1764,7 @@ start()
 random fine tunings:
 ----------------------
 
+-to optimize: do as little in the mainloop as possible. this means, for example, that trees can be removed from the loop and make it so that any time something pipes damage to a type tree it will just lower a variable and do a check right there.
 -make sprites that are "above" others to appear behind
 -chat- any player can open up a chat from player to player, or shout a message that appears to everyone. However shouting only works once every five seconds.
 -Water can only be passed through if the unit's weight is under a certain threshold. Otherwise it exerts quadraticly multiplying force against the unit's speed and health if he tries to pass through. Even lighter units that float get a flat percentage of lost speed in water.
@@ -1766,6 +1792,8 @@ unimplemented attributes
 -Items are actually similar to said organs. They don't obviously classify the same way, but they dynamically can attatch and detatch from a player, house attributes, functions, and passive functions, and integrate into the player's sprite in the same way.
 -There are, however, many non-player, non-objects. Like trees. These are stationaries, that have only basic health attributes (they are immune to all damage types but brute and burn). They use less CPU. Many stationaries also have on-death functions. For example, trees drop wood, an item that is potentially useful as it has a function to withdraw a temeperature reserve into nearby objects and change sprite to fire (which has unique scripting to spread to other objects made of wood), and also may have several kinds of permanent item-type attributes applied to them during runtime, such as attack, which equates sharpening the wood. Finally it can be used in a stationary to contribute its item stats and a plank-like sprite to the object (or start an entirely new stationary). However, the location and angle of said plank has to be coded in. Theoretically you could build a function to make planks into a fence though, for example. The plank would simply have to visually attatch to the sprite it is modifying, and if so than it will redefine said stationary's borders, breaking it off into two or more stationaries as nescessary, not breaking up scripted in L shaped images if they have the DONTBREAK flag active. Finally, obviously you can't make one stationary extend into the space of another very much at all, something like five pixels maximum. The idea of assembling raw attributes and icons can be very powerful, I think.
 -Organs may be targeted, again in script, but with the exception of one's own sprite they can only target exposed organs. However ones underneath still take damage, and all organs detatch at a percent of damage threshhold. Obviously your primarily screwed if the residence of your connection dies. Hence it makes sense to give yourself a nice armor plating. However, since all organs require sustenance and said armor is not contributing anything, it may be a helpful in combat but it will provide a serious upkeep drain so be careful...
+-Organs are also independant objects... While they pair with a user, theoretically you could sever an organ, unpairing it, than pair it with yourself.
+-Possibly intelligence and or reaction time. This will be somehow associated with the AI's actions.
 
 note: high level issues like confusedness, nerve damage, hallucinations, and necrosis are dealt with via an effect, these are just base damage types. Even paralysis can just be reduced to speed.
 -So damage and heal dont pipe into health... They pipe into damage buffers, which pipe into health. Damage buffers will apply secondary effects of specialized damage types, and also must be healed differently. If something like 10 toxic is present, it will keep piping -10 to health until it is reduced to zero. It can not go below zero. Regen still pipes into health, there still is a raw, general life force variable. Its just that damage and healing has to pipe through damage specific buffers, and must be reduced by damage specific de-buffers.
@@ -1773,6 +1801,25 @@ note: high level issues like confusedness, nerve damage, hallucinations, and nec
 -Finally, it is to be noted that new organs cannot theoretically be created ingame. Note the theoretically bit. You can have a bunch of dormant organs to let you regrow em. Just need some raw stats to back the organs up. Also there is an organ cap at 70. And a function cap of 70 per organ. And of coarse the pipe cap. This means you can't get too out of hand... If you work hard eneough to make 70 complex functions per 70 organs you deserve it.
 
 
+map
+------------
+Primary Features:
+	Common:
+		Resources: Trees, plant and animal foods, minerals
+		Mushrooms: Lots of mushrooms. Most of which are toxic, some of which are dead useful. Usually identified because each type only occurs in specialized locations.
+		Neutral Animals: Retalitory, domesticatable wild units like dogs. Many have unusual traits, they are quite varied in ability and interesting design.
+		Wild Animals: Pack hunting creatures, territorial ones, generally makes wilderness difficult
+		Eras: Instead of mucking around with round starts and ends, and game modes, there are just general epochs in gameplay. For example, one possible epoch to experience is bloodbath. Massive weapon and supply drop in one location, sudden scarcity elsewhere. May the odds be never in your favor and all that.
+
+	Less Common:
+		Monsters: Supernatural hostile entities that roam certain areas. Powerful spoils for defeating, rampant in the wild. There are some OP ones but most of those are territorial.
+		Sealed Vaults: Contain triggers to unstoppable monsters or swarms of monsters. Unleashing a vault means doom by fire, possession, or some other unspeakable fate.
+		Weather Hills: Produces weather-like effects in surrounding areas depending on certain factors.
+		Collossi: Non-aggressive behemoths that wander around for a bit then leave the map. Only danger is if you attack one on accident or if your main encampment is in its way.
+
+	Rare:
+		Artifact Seal: If you manage to break the defenses, you will find an object of varying use.
+		Anomalous Cores: Orb like objects that tend to fall from the skies. Do various things. For example, one might promote nearby plant growth. One might summon protective shades. One might dispell AI units.
 
 TODO
 -------------

@@ -5,12 +5,22 @@ import math
 updated   =  pygame.sprite.RenderUpdates()
 drawn     =  pygame.sprite.RenderUpdates()
 
-def drawtree(x1, y1, angle, depth,picture):
+def drawtree(x1, y1, angle, depth, picture):
 	if depth:
-		angle += random.randrange(-50+depth*7,50-depth*7)
+		if depth < 7:
+			angle += random.randrange(-50+depth*7,50-depth*7)
+		else:
+			angle += random.randrange(-50+depth*2,50-depth*2)
 		x2 = x1 + int(math.cos(math.radians(angle)) * depth * 3.0)
 		y2 = y1 + int(math.sin(math.radians(angle)) * depth * 3.0)
-		pygame.draw.line(picture, (150,200-depth*20,70), (x1, y1), (x2, y2), depth)
+		if 200-depth*20 > 100:
+			pygame.draw.line(picture, (150,200-depth*20,70), (x1, y1), (x2, y2), depth)
+		elif 200-depth*10 > 100:
+			pygame.draw.line(picture, (150,120-depth*2,70), (x1, y1), (x2, y2), depth)
+		elif 200-depth*8 > 100:
+			pygame.draw.line(picture, (150,100,70), (x1, y1), (x2, y2), int(depth*1.3))
+		else:
+			pygame.draw.line(picture, (150,100,70), (x1, y1), (x2, y2), int(depth*1.6))
 		drawtree(x2, y2, angle-20, depth-1, picture)
 		drawtree(x2, y2, angle+20, depth-1, picture)
 	else:
@@ -46,13 +56,30 @@ class tree(pygame.sprite.Sprite):
 		#screen.fill((200,200,200),self.rect)
 		pass
 
+class bigtree(pygame.sprite.Sprite):
+	def __init__(self,pos):
+		pygame.sprite.Sprite.__init__(self)
+		self.pos             =   pos
+		img                  =   pygame.Surface((600,600))
+		img.fill((255,255,255))
+		img.set_colorkey((255,255,255))
+		drawtree(300,500,-90,15,img)
+		self.image           =   img
+		self.rect            =   self.image.get_rect()
+		self.rect.center     =   self.pos
+		drawn.add(self)
+		updated.add(self)
+	def update(self):
+		#screen.fill((200,200,200),self.rect)
+		pass
+
 if __name__ == "__main__":
 	pygame.init()
 	pygame.display.init()
 	screen = pygame.display.set_mode((600,600))
 	screen.fill((200,200,200))
 	pygame.display.flip()
-	tree((300,300))
+	bigtree((300,300))
 	pygame.display.flip()
 	while True:
 		pygame.event.pump()
